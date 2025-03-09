@@ -1,0 +1,871 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Living Relationship Seismograph</title>
+  <style>
+    :root {
+      --bg-color: #0a0a0f;
+      --stone-color: #3d3b45;
+      --stone-glow: rgba(103, 86, 130, 0.6);
+      --text-color: #e0e0e8;
+      --accent-color: #9184b0;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      position: relative;
+    }
+    
+    .container {
+      width: 100%;
+      max-width: 500px;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 1rem;
+      position: relative;
+      z-index: 2;
+    }
+    
+    .stone-container {
+      position: relative;
+      width: 80vw;
+      height: 80vw;
+      max-width: 300px;
+      max-height: 300px;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .stone {
+      width: 80%;
+      height: 80%;
+      background: var(--stone-color);
+      border-radius: 50%;
+      position: relative;
+      box-shadow: 0 0 40px var(--stone-glow);
+      transform: scale(1);
+      transition: all 0.5s ease;
+      cursor: pointer;
+      overflow: hidden;
+    }
+    
+    .touch-points {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    .touch-left, .touch-right {
+      width: 40%;
+      height: 40%;
+      position: absolute;
+      border-radius: 50%;
+      opacity: 0.2;
+    }
+    
+    .touch-left {
+      left: 5%;
+      background: radial-gradient(circle, #a191cf 0%, transparent 80%);
+    }
+    
+    .touch-right {
+      right: 5%;
+      background: radial-gradient(circle, #a191cf 0%, transparent 80%);
+    }
+    
+    .touch-active {
+      opacity: 0.7;
+      animation: pulse 1.5s infinite;
+    }
+    
+    .waves {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      overflow: hidden;
+    }
+    
+    .wave {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 200%;
+      height: 200%;
+      background: radial-gradient(ellipse at center, rgba(161, 145, 207, 0.2) 0%, transparent 70%);
+      opacity: 0;
+    }
+    
+    .stage-indicator {
+      width: 100%;
+      text-align: center;
+      margin-top: 2rem;
+      font-size: 1.1rem;
+      letter-spacing: 1px;
+      opacity: 0.7;
+      transition: opacity 0.5s ease;
+    }
+    
+    .prompt {
+      position: absolute;
+      bottom: 10%;
+      text-align: center;
+      font-size: 1rem;
+      opacity: 0;
+      transition: opacity 0.5s ease;
+      max-width: 90%;
+    }
+    
+    .visualizer {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 30%;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      z-index: 1;
+    }
+    
+    .bar {
+      width: 3px;
+      height: 5px;
+      background: var(--accent-color);
+      margin: 0 1px;
+      transform-origin: bottom;
+      opacity: 0.3;
+      transition: height 0.1s ease;
+    }
+    
+    .breath-indicator {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 60%;
+      height: 60%;
+      border-radius: 50%;
+      background: rgba(161, 145, 207, 0.05);
+      opacity: 0;
+      animation: breathe 5s infinite;
+    }
+    
+    .back-button {
+      position: absolute;
+      top: 20px;
+      left: 20px;
+      background: none;
+      border: none;
+      color: var(--text-color);
+      font-size: 0.9rem;
+      cursor: pointer;
+      opacity: 0.6;
+      z-index: 3;
+    }
+    
+    .intro {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: var(--bg-color);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      padding: 2rem;
+      z-index: 10;
+      transition: opacity 0.8s ease, transform 0.8s ease;
+    }
+    
+    .intro h1 {
+      font-size: 1.5rem;
+      text-align: center;
+      margin-bottom: 1.5rem;
+      line-height: 1.4;
+    }
+    
+    .intro p {
+      font-size: 0.9rem;
+      text-align: center;
+      margin-bottom: 2rem;
+      line-height: 1.5;
+      opacity: 0.8;
+    }
+    
+    .start-button {
+      background: var(--accent-color);
+      color: var(--bg-color);
+      border: none;
+      padding: 0.8rem 2rem;
+      border-radius: 2rem;
+      font-size: 1rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-top: 1rem;
+    }
+    
+    .start-button:hover {
+      background: #a79ac1;
+      transform: scale(1.05);
+    }
+    
+    .blueprint {
+      width: 90%;
+      max-width: 400px;
+      margin-top: 1rem;
+    }
+    
+    .blueprint-input {
+      width: 100%;
+      background: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding: 0.7rem;
+      border-radius: 0.5rem;
+      color: var(--text-color);
+      margin-bottom: 1rem;
+    }
+    
+    .blueprint-label {
+      font-size: 0.9rem;
+      margin-bottom: 0.3rem;
+      display: block;
+      opacity: 0.8;
+    }
+    
+    .hidden {
+      display: none;
+    }
+    
+    .fade-out {
+      opacity: 0;
+      transform: translateY(-20px);
+      pointer-events: none;
+    }
+    
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+        opacity: 0.7;
+      }
+      50% {
+        transform: scale(1.1);
+        opacity: 0.5;
+      }
+      100% {
+        transform: scale(1);
+        opacity: 0.7;
+      }
+    }
+    
+    @keyframes breathe {
+      0% {
+        transform: translate(-50%, -50%) scale(0.8);
+        opacity: 0.2;
+      }
+      50% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 0.4;
+      }
+      100% {
+        transform: translate(-50%, -50%) scale(0.8);
+        opacity: 0.2;
+      }
+    }
+    
+    @keyframes ripple {
+      0% {
+        transform: translate(-50%, -50%) scale(0);
+        opacity: 0.7;
+      }
+      100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 0;
+      }
+    }
+    
+    @keyframes float {
+      0% {
+        transform: translateY(0);
+      }
+      50% {
+        transform: translateY(-10px);
+      }
+      100% {
+        transform: translateY(0);
+      }
+    }
+    
+    .particles {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+      z-index: 1;
+    }
+    
+    .particle {
+      position: absolute;
+      background: var(--accent-color);
+      border-radius: 50%;
+      opacity: 0;
+      z-index: 1;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <button class="back-button">← Reset</button>
+    
+    <div class="stone-container">
+      <div class="stone">
+        <div class="waves"></div>
+        <div class="breath-indicator"></div>
+        <div class="touch-points">
+          <div class="touch-left"></div>
+          <div class="touch-right"></div>
+        </div>
+      </div>
+    </div>
+    
+    <div class="stage-indicator">Awaiting Connection</div>
+    <div class="prompt">Place hands on opposite sides to begin</div>
+    
+    <div class="visualizer">
+      <!-- Bars will be added dynamically -->
+    </div>
+  </div>
+  
+  <div class="particles"></div>
+  
+  <div class="intro">
+    <h1>The Living Relationship Seismograph<br><small>A Sonic Ritual for Emotional Attunement</small></h1>
+    
+    <p>A sound-first, screenless interface for couples to navigate their relational landscape through resonance. Experience a ritual flow—from dual breath synchronization to subtle granular echoes, and ultimately, a recalibration that honors your shared frequency.</p>
+    
+    <div class="blueprint">
+      <label class="blueprint-label">Enter three core relationship values as harmonic seeds:</label>
+      <input type="text" class="blueprint-input" placeholder="Value 1 (e.g., Patience)" value="Patience">
+      <input type="text" class="blueprint-input" placeholder="Value 2 (e.g., Trust)" value="Trust">
+      <input type="text" class="blueprint-input" placeholder="Value 3 (e.g., Joy)" value="Joy">
+    </div>
+    
+    <button class="start-button">Begin Ritual</button>
+  </div>
+
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.26/Tone.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      // DOM Elements
+      const intro = document.querySelector('.intro');
+      const startButton = document.querySelector('.start-button');
+      const backButton = document.querySelector('.back-button');
+      const stone = document.querySelector('.stone');
+      const touchLeft = document.querySelector('.touch-left');
+      const touchRight = document.querySelector('.touch-right');
+      const stageIndicator = document.querySelector('.stage-indicator');
+      const prompt = document.querySelector('.prompt');
+      const waves = document.querySelector('.waves');
+      const visualizer = document.querySelector('.visualizer');
+      const particlesContainer = document.querySelector('.particles');
+      const breathIndicator = document.querySelector('.breath-indicator');
+      const blueprintInputs = document.querySelectorAll('.blueprint-input');
+      
+      // State variables
+      let currentStage = 0;
+      let leftTouched = false;
+      let rightTouched = false;
+      let synth = null;
+      let lfo = null;
+      let noise = null;
+      let filter = null;
+      let currentOctave = 3;
+      let relationshipValues = [];
+      let isAudioInitialized = false;
+      let touchStartTime = 0;
+      let lastTouchDistance = 0;
+      let baseDroneVolume = new Tone.Volume(-20);
+      let breathSynth = null;
+      let granularPlayer = null;
+      let harmonicValues = [];
+      let isCalibrating = false;
+      let calibrationProgress = 0;
+      let activeWaves = [];
+      let analyser = null;
+      let dataArray = null;
+      
+      // Create visualizer bars
+      for (let i = 0; i < 50; i++) {
+        const bar = document.createElement('div');
+        bar.classList.add('bar');
+        visualizer.appendChild(bar);
+      }
+      const visualizerBars = document.querySelectorAll('.bar');
+      
+      // Stages configuration
+      const stages = [
+        { name: "Activation (Dual Breath)", prompt: "Place hands on opposite sides and breathe together" },
+        { name: "Voice Field (Granular Echo Chamber)", prompt: "Speak softly – your voice creates the field" },
+        { name: "Fault Line Sonification", prompt: "Listen for patterns in your relational landscape" },
+        { name: "Recalibration (Somatic Symphony)", prompt: "One partner hums, the other traces patterns" },
+        { name: "Closure (Sympathetic Resonance)", prompt: "Feel the resonance in your palms" }
+      ];
+      
+      // Initialize the interface
+      function init() {
+        updateStageUI();
+        createRippleEffect();
+        
+        startButton.addEventListener('click', async function() {
+          relationshipValues = Array.from(blueprintInputs).map(input => input.value.trim());
+          harmonicValues = relationshipValues.map((value, i) => {
+            const baseFreq = 432; // Starting frequency (Hz)
+            const freq = baseFreq * (1 + (i * 0.16667)); // Perfect fifth intervals
+            return { name: value, frequency: freq };
+          });
+          
+          intro.classList.add('fade-out');
+          setTimeout(() => {
+            intro.classList.add('hidden');
+          }, 800);
+          
+          try {
+            await Tone.start();
+            initAudio();
+            isAudioInitialized = true;
+            console.log("Audio initialized");
+          } catch (e) {
+            console.error("Could not initialize audio:", e);
+          }
+        });
+        
+        backButton.addEventListener('click', resetExperience);
+        
+        // Touch events for mobile
+        touchLeft.addEventListener('touchstart', () => handleTouch('left', true));
+        touchLeft.addEventListener('touchend', () => handleTouch('left', false));
+        touchRight.addEventListener('touchstart', () => handleTouch('right', true));
+        touchRight.addEventListener('touchend', () => handleTouch('right', false));
+        
+        // Mouse events for desktop simulation
+        touchLeft.addEventListener('mousedown', () => handleTouch('left', true));
+        touchLeft.addEventListener('mouseup', () => handleTouch('left', false));
+        touchLeft.addEventListener('mouseleave', () => handleTouch('left', false));
+        touchRight.addEventListener('mousedown', () => handleTouch('right', true));
+        touchRight.addEventListener('mouseup', () => handleTouch('right', false));
+        touchRight.addEventListener('mouseleave', () => handleTouch('right', false));
+        
+        // Stone movement for stages 1-4
+        stone.addEventListener('touchmove', handleStoneTouch);
+        stone.addEventListener('mousemove', handleStoneMouse);
+        
+        // Setup particles and visualization
+        setupParticles();
+        setupVisualization();
+      }
+      
+      function initAudio() {
+        const reverb = new Tone.Reverb({ decay: 6, wet: 0.4 }).toDestination();
+        analyser = new Tone.Analyser('fft', 64);
+        Tone.Destination.connect(analyser);
+        dataArray = new Uint8Array(analyser.size);
+        
+        synth = new Tone.PolySynth(Tone.FMSynth).connect(baseDroneVolume);
+        baseDroneVolume.connect(reverb);
+        
+        breathSynth = new Tone.Synth({
+          oscillator: { type: 'sine' },
+          envelope: { attack: 1.5, decay: 0.2, sustain: 0.8, release: 2 }
+        }).connect(new Tone.Volume(-25)).connect(reverb);
+        
+        granularPlayer = new Tone.Player().connect(new Tone.Volume(-15)).connect(reverb);
+        
+        noise = new Tone.Noise('pink').connect(new Tone.Volume(-50)).connect(reverb);
+        
+        filter = new Tone.Filter({ frequency: 800, type: 'lowpass', Q: 2 });
+        
+        lfo = new Tone.LFO({ frequency: 0.1, min: 200, max: 1000 }).connect(filter.frequency);
+        lfo.start();
+        noise.start();
+        
+        visualizeAudio();
+      }
+      
+      function setupVisualization() {
+        function visualizeAudio() {
+          if (analyser) {
+            analyser.getValue();
+            dataArray = analyser.getValue();
+            
+            for (let i = 0; i < visualizerBars.length; i++) {
+              const index = Math.floor((i / visualizerBars.length) * dataArray.length);
+              const value = dataArray[index];
+              const height = (value + 140) * 0.7;
+              visualizerBars[i].style.height = `${height}px`;
+              const hue = 260 + (value * 0.5);
+              visualizerBars[i].style.backgroundColor = `hsl(${hue}, 70%, 65%)`;
+              visualizerBars[i].style.opacity = 0.2 + (value * 0.005);
+            }
+          }
+          requestAnimationFrame(visualizeAudio);
+        }
+        visualizeAudio();
+      }
+      
+      // Touch handling
+      function handleTouch(side, isActive) {
+        if (side === 'left') {
+          leftTouched = isActive;
+          touchLeft.classList.toggle('touch-active', isActive);
+        } else {
+          rightTouched = isActive;
+          touchRight.classList.toggle('touch-active', isActive);
+        }
+        
+        if (isActive) {
+          touchStartTime = Date.now();
+          createWave(side);
+        }
+        checkDualTouch();
+      }
+      
+      function checkDualTouch() {
+        if (leftTouched && rightTouched) {
+          if (currentStage === 0) {
+            startBreathSync();
+          } else {
+            progressStage();
+          }
+        } else {
+          if (currentStage === 0 && (leftTouched || rightTouched)) {
+            breathIndicator.style.opacity = '1';
+            if (isAudioInitialized) playBreathGuide();
+          } else {
+            breathIndicator.style.opacity = '0';
+          }
+        }
+      }
+      
+      function startBreathSync() {
+        breathIndicator.style.opacity = '1';
+        breathIndicator.style.animation = 'breathe 5s infinite';
+        prompt.textContent = "Breathe together until the tone stills";
+        prompt.style.opacity = '1';
+        
+        if (isAudioInitialized) {
+          synth.triggerAttack(['C2'], Tone.now(), 0.2);
+          let driftAmount = 0.1;
+          let driftDirection = 1;
+          
+          const driftInterval = setInterval(() => {
+            driftAmount *= 0.95;
+            driftDirection *= (Math.random() > 0.9 ? -1 : 1);
+            const pitchBend = driftAmount * driftDirection;
+            
+            if (driftAmount < 0.003 && leftTouched && rightTouched) {
+              clearInterval(driftInterval);
+              setTimeout(() => {
+                synth.triggerRelease(['C2'], Tone.now());
+                breathIndicator.style.opacity = '0';
+                progressStage();
+              }, 2000);
+            }
+          }, 500);
+        }
+      }
+      
+      function playBreathGuide() {
+        breathSynth.triggerAttackRelease('C3', '0.5s', Tone.now(), 0.1);
+        setTimeout(() => {
+          if (leftTouched || rightTouched) playBreathGuide();
+        }, 5000);
+      }
+      
+      function createRippleEffect() {
+        setInterval(() => {
+          if (currentStage > 0 && (leftTouched || rightTouched)) {
+            const wave = document.createElement('div');
+            wave.classList.add('wave');
+            waves.appendChild(wave);
+            wave.style.animation = `ripple ${2 + Math.random()}s ease-out forwards`;
+            setTimeout(() => {
+              waves.removeChild(wave);
+            }, 2000);
+          }
+        }, 2000);
+      }
+      
+      function createWave(side) {
+        const wave = document.createElement('div');
+        wave.classList.add('wave');
+        waves.appendChild(wave);
+        const color = side === 'left' ? '#a191cf' : '#9184b0';
+        wave.style.background = `radial-gradient(ellipse at center, ${color}40 0%, transparent 70%)`;
+        const duration = 1 + Math.random();
+        wave.style.animation = `ripple ${duration}s ease-out forwards`;
+        wave.style.left = side === 'left' ? '30%' : '70%';
+        setTimeout(() => {
+          waves.removeChild(wave);
+        }, duration * 1000);
+        activeWaves.push(wave);
+      }
+      
+      // Stone movement handling for stages 2-5
+      function handleStoneTouch(e) {
+        e.preventDefault();
+        if (currentStage < 1) return;
+        const touch1 = e.touches[0];
+        const touch2 = e.touches[1];
+        if (touch1 && touch2) {
+          const distance = Math.hypot(touch2.clientX - touch1.clientX, touch2.clientY - touch1.clientY);
+          processTouchInteraction(distance);
+        }
+      }
+      
+      function handleStoneMouse(e) {
+        if (currentStage < 1 || (!leftTouched && !rightTouched)) return;
+        const rect = stone.getBoundingClientRect();
+        const centerX = rect.left + rect.width / 2;
+        const centerY = rect.top + rect.height / 2;
+        const distance = Math.hypot(e.clientX - centerX, e.clientY - centerY);
+        processTouchInteraction(distance);
+      }
+      
+      function processTouchInteraction(distance) {
+        if (!isAudioInitialized) return;
+        const distanceChange = Math.abs(distance - lastTouchDistance);
+        lastTouchDistance = distance;
+        const normalizedDistance = Math.min(Math.max(distance / 300, 0), 1);
+        
+        switch (currentStage) {
+          case 1: // Voice Field
+            lfo.frequency.value = 0.1 + (normalizedDistance * 2);
+            if (distanceChange > 5) createVoiceGranule(normalizedDistance);
+            break;
+          case 2: // Fault Line Sonification
+            const noiseVolume = -50 + (distanceChange * 2);
+            noise.volume.rampTo(Math.min(noiseVolume, -20), 0.1);
+            if (distanceChange > 5) createTensionParticles(distanceChange);
+            break;
+          case 3: // Recalibration
+            if (isCalibrating) {
+              calibrationProgress += 0.01;
+              if (calibrationProgress >= 1) completeCalibration();
+              createCalibrationParticles(normalizedDistance);
+            } else if (distanceChange > 10) {
+              startCalibration();
+            }
+            break;
+          case 4: // Closure
+            const harmonyFactor = 1 - Math.min(distanceChange / 20, 1);
+            if (harmonyFactor > 0.8) playHarmonicSeed(harmonyFactor);
+            break;
+        }
+      }
+      
+      function createVoiceGranule(intensity) {
+        if (!isAudioInitialized) return;
+        const lowFreq = 500 + (intensity * 1500);
+        const highFreq = 2000 + (intensity * 6000);
+        const grainSynth = new Tone.Synth({
+          oscillator: { type: intensity > 0.7 ? 'sawtooth' : 'sine' },
+          envelope: { attack: 0.001, decay: 0.05, sustain: 0, release: 0.05 }
+        }).connect(new Tone.Volume(-20)).connect(Tone.Destination);
+        const freq = lowFreq + (Math.random() * (highFreq - lowFreq));
+        grainSynth.triggerAttackRelease(freq, 0.05);
+        createGranuleParticle(intensity);
+        setTimeout(() => { grainSynth.dispose(); }, 100);
+      }
+      
+      function createGranuleParticle(intensity) {
+        const particle = document.createElement('div');
+        particle.classList.add('particle');
+        particlesContainer.appendChild(particle);
+        const size = 2 + (intensity * 8);
+        particle.style.width = `${size}px`;
+        particle.style.height = `${size}px`;
+        const hue = 260 - (intensity * 60);
+        particle.style.backgroundColor = `hsl(${hue}, 70%, 65%)`;
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 100 + (Math.random() * 50);
+        const x = Math.cos(angle) * radius + 50;
+        const y = Math.sin(angle) * radius + 50;
+        particle.style.left = `${x}%`;
+        particle.style.top = `${y}%`;
+        particle.style.opacity = '0.7';
+        particle.style.transition = `all ${0.5 + intensity}s ease-out`;
+        setTimeout(() => {
+          const newX = x + (Math.random() * 40 - 20);
+          const newY = y + (Math.random() * 40 - 20);
+          particle.style.left = `${newX}%`;
+          particle.style.top = `${newY}%`;
+          particle.style.opacity = '0';
+        }, 10);
+        setTimeout(() => { particlesContainer.removeChild(particle); }, 1500);
+      }
+      
+      // Complete the tension particles creation based on dissonant clusters
+      function createTensionParticles(tension) {
+        const count = Math.floor(tension / 2);
+        for (let i = 0; i < count; i++) {
+          const particle = document.createElement('div');
+          particle.classList.add('particle');
+          particlesContainer.appendChild(particle);
+          const size = 3 + (Math.random() * 6);
+          particle.style.width = `${size}px`;
+          particle.style.height = `${size}px`;
+          // Use harsher hues for tension: shifting toward metallic or discordant shades
+          const hue = 200 + Math.random() * 50;
+          particle.style.backgroundColor = `hsl(${hue}, 80%, 50%)`;
+          const angle = Math.random() * Math.PI * 2;
+          const radius = 80 + Math.random() * 60;
+          const x = Math.cos(angle) * radius + 50;
+          const y = Math.sin(angle) * radius + 50;
+          particle.style.left = `${x}%`;
+          particle.style.top = `${y}%`;
+          particle.style.opacity = '0.8';
+          particle.style.transition = `all ${0.5 + Math.random()}s ease-out`;
+          setTimeout(() => {
+            const newX = x + (Math.random() * 30 - 15);
+            const newY = y + (Math.random() * 30 - 15);
+            particle.style.left = `${newX}%`;
+            particle.style.top = `${newY}%`;
+            particle.style.opacity = '0';
+          }, 10);
+          setTimeout(() => { particlesContainer.removeChild(particle); }, 1500);
+        }
+      }
+      
+      // Calibration functions for stage 3
+      function startCalibration() {
+        isCalibrating = true;
+        calibrationProgress = 0;
+        prompt.textContent = "Calibrating... Hold steady.";
+        prompt.style.opacity = '1';
+      }
+      
+      function createCalibrationParticles(norm) {
+        // Similar to granule particles but softer, indicating progress
+        const particle = document.createElement('div');
+        particle.classList.add('particle');
+        particlesContainer.appendChild(particle);
+        const size = 4 + (norm * 4);
+        particle.style.width = `${size}px`;
+        particle.style.height = `${size}px`;
+        particle.style.backgroundColor = `rgba(145, 132, 176, ${0.5 + norm * 0.5})`;
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 70 + Math.random() * 30;
+        const x = Math.cos(angle) * radius + 50;
+        const y = Math.sin(angle) * radius + 50;
+        particle.style.left = `${x}%`;
+        particle.style.top = `${y}%`;
+        particle.style.opacity = '0.7';
+        particle.style.transition = `all 0.8s ease-out`;
+        setTimeout(() => {
+          particle.style.opacity = '0';
+        }, 100);
+        setTimeout(() => { particlesContainer.removeChild(particle); }, 1000);
+      }
+      
+      function completeCalibration() {
+        isCalibrating = false;
+        calibrationProgress = 0;
+        prompt.textContent = stages[3].prompt;
+        progressStage();
+      }
+      
+      function playHarmonicSeed(factor) {
+        if (!isAudioInitialized || harmonicValues.length === 0) return;
+        const seed = harmonicValues[Math.floor(Math.random() * harmonicValues.length)];
+        const seedSynth = new Tone.Synth({
+          oscillator: { type: 'sine' },
+          envelope: { attack: 0.05, decay: 0.1, sustain: 0.5, release: 0.3 }
+        }).toDestination();
+        seedSynth.triggerAttackRelease(seed.frequency, 0.3, Tone.now(), factor * 0.5);
+        setTimeout(() => { seedSynth.dispose(); }, 500);
+      }
+      
+      function updateStageUI() {
+        stageIndicator.textContent = stages[currentStage] ? stages[currentStage].name : "Session Complete";
+        prompt.textContent = stages[currentStage] ? stages[currentStage].prompt : "Thank you for the ritual";
+      }
+      
+      function progressStage() {
+        if (currentStage < stages.length - 1) {
+          currentStage++;
+          updateStageUI();
+        } else {
+          // Final stage: closure and saving of session tone could be handled here.
+          prompt.textContent = "Session closed. Your shared resonance lingers.";
+        }
+      }
+      
+      function resetExperience() {
+        currentStage = 0;
+        leftTouched = false;
+        rightTouched = false;
+        isCalibrating = false;
+        calibrationProgress = 0;
+        updateStageUI();
+        prompt.style.opacity = '0';
+        intro.classList.remove('hidden');
+        intro.classList.remove('fade-out');
+      }
+      
+      function setupParticles() {
+        // Particles are dynamically created in respective functions.
+      }
+      
+      function visualizeAudio() {
+        function loop() {
+          if (analyser) {
+            analyser.getValue();
+            dataArray = analyser.getValue();
+            for (let i = 0; i < visualizerBars.length; i++) {
+              const index = Math.floor((i / visualizerBars.length) * dataArray.length);
+              const value = dataArray[index];
+              const height = (value + 140) * 0.7;
+              visualizerBars[i].style.height = `${height}px`;
+            }
+          }
+          requestAnimationFrame(loop);
+        }
+        loop();
+      }
+      
+      init();
+    });
+  </script>
+</body>
+</html>

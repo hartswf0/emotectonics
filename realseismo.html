@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Relationship Seismograph</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    
+    body {
+      overflow: hidden;
+      background-color: #121212;
+      font-family: sans-serif;
+      touch-action: manipulation;
+      width: 100vw;
+      height: 100vh;
+    }
+    
+    #canvas-container {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    canvas {
+      display: block;
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+    
+    .permission-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: rgba(0, 0, 0, 0.85);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+    }
+    
+    .permission-button {
+      background-color: #e63946;
+      color: white;
+      border: none;
+      border-radius: 50%;
+      width: 120px;
+      height: 120px;
+      font-size: 16px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 0 20px rgba(230, 57, 70, 0.5);
+      opacity: 0.9;
+    }
+    
+    .permission-button:hover {
+      transform: scale(1.05);
+      box-shadow: 0 0 30px rgba(230, 57, 70, 0.7);
+      opacity: 1;
+    }
+    
+    .pulse {
+      animation: pulse 2s infinite;
+    }
+    
+    @keyframes pulse {
+      0% {
+        transform: scale(1);
+        box-shadow: 0 0 20px rgba(230, 57, 70, 0.5);
+      }
+      50% {
+        transform: scale(1.05);
+        box-shadow: 0 0 30px rgba(230, 57, 70, 0.7);
+      }
+      100% {
+        transform: scale(1);
+        box-shadow: 0 0 20px rgba(230, 57, 70, 0.5);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="canvas-container">
+    <canvas id="canvas"></canvas>
+  </div>
+
+  <div class="permission-overlay" id="permission-overlay">
+    <button class="permission-button pulse" id="start-button">Begin</button>
+  </div>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      // Canvas setup
+      const canvas = document.getElementById('canvas');
+      const ctx = canvas.getContext('2d');
+      let width, height;
+      
+      // Audio analysis variables
+      let audioContext;
+      let analyser;
+      let dataArray;
+      let bufferLength;
+      let microphoneStream;
+      
+      // Animation state
+      let animationState = {
+        tension: 0,
+        tremor: 0,
+        rupture: 0,
+        recalibration: 1,
+        baseColor: { r: 230, g: 57, b: 70 },
+        secondaryColor: { r: 29, g: 53, b: 87 },
+        shapes: []
+      };
+      
+      // Initialize shapes
+      function initShapes() {
+        animationState.shapes = [];
+        
+        // Center circle
+        animationState.shapes.push({
+          type: 'circle',
+          x: width / 2,
+          y: height / 2,
+          radius: Math.min(width, height) * 0.15,
+          rotation: 0,
+          scale: 1,
+          opacity: 0.8,
+          tremor: 0
+        });
+        
+        // Rings
+        const ringCount = 3;
+        for (let i = 0; i < ringCount; i++) {
+          animationState.shapes.push({
+            type: 'ring',
+            x: width / 2,
+            y: height / 2,
+            radius: Math.min(width, height) * (0.2 + i * 0.1),
+            thickness: 2,
+            rotation: i * (Math.PI / ringCount),
+            scale: 1,
+            opacity: 0.6 - (i * 0.1),
+            tremor: 0
+          });
+        }
+        
+        // Lines
+        const lineCount = 6;
+        const angleStep = (Math.PI * 2) / lineCount;
+        for (let i = 0; i < lineCount; i++) {
+          const angle = i * angleStep;
+          const distance = Math.min(width, height) * 0.4;
+          animationState.shapes.push({
+            type: 'line',
+            x1: width / 2,
+            y1: height / 2,
+            x2: width / 2 + Math.cos(angle) * distance,
+            y2: height / 2 + Math.sin(angle) * distance,
+            thickness: 2,
+            rotation: angle,
+            scale: 1,
+            opacity: 0.7,
+            tremor: 0
+          });
+        }
+      }
+      
+      // Resize handler
+      function handleResize() {
+        width = window.innerWidth;
+        height = window.innerHeight;
+        canvas.width = width;
+        canvas.height = height;
+        
+        // Reinitialize shapes on resize
+        initShapes();
+      }
+      
+      // Initialize audio processing
+      async function initAudio() {
+        try {
+          // Create audio context
+          audioContext = new (window.AudioContext || window.webkitAudioContext)();
+          
+          // Get microphone stream
+          const stream = await navigator.mediaDevices.getUserMedia({ audio: true, video: false });
+          microphoneStream = stream;
+          
+          // Create analyser
+          analyser = audioContext.createAnalyser();
+          analyser.fftSize = 2048;
+          bufferLength = analyser.frequencyBinCount;
+          dataArray = new Uint8Array(bufferLength);
+          
+          // Connect microphone to analyser
+          const source = audioContext.createMediaStreamSource(stream);
+          source.connect(analyser);
+          
+          // Hide overlay
+          document.getElementById('permission-overlay').style.display = 'none';
+          
+          // Start animation
+          animate();
+        } catch (err) {
+          console.error('Error accessing microphone:', err);
+          alert('Could not access microphone. Please allow microphone access and reload the page.');
+        }
+      }
+      
+      // Process audio data
+      function processAudio() {
+        if (!analyser) return;
+        
+        analyser.getByteTimeDomainData(dataArray);
+        
+        // Calculate audio metrics
+        let volumeSum = 0;
+        let variationSum = 0;
+        let prevValue = dataArray[0];
+        
+        for (let i = 0; i < bufferLength; i++) {
+          const value = dataArray[i] / 128 - 1; // Normalize to -1 to 1
+          volumeSum += Math.abs(value);
+          
+          if (i > 0) {
+            variationSum += Math.abs(value - prevValue);
+          }
+          
+          prevValue = value;
+        }
+        
+        const volume = volumeSum / bufferLength;
+        const variation = variationSum / (bufferLength - 1);
+        
+        // Update animation state based on audio
+        // Soft tremors
+        animationState.tremor = Math.min(volume * 3, 1);
+        
+        // Tension
+        const tensionTarget = variation * 10;
+        animationState.tension = animationState.tension * 0.95 + tensionTarget * 0.05;
+        
+        // Rupture (sudden spikes)
+        if (variation > 0.01 && variation > animationState.rupture * 2) {
+          animationState.rupture = Math.min(variation * 5, 1);
+        } else {
+          animationState.rupture *= 0.9; // Decay
+        }
+        
+        // Recalibration (inverse of tension)
+        animationState.recalibration = 1 - ((animationState.tension + animationState.rupture) / 2);
+        
+        // Update shape parameters
+        animationState.shapes.forEach(shape => {
+          // Apply tremor effect
+          shape.tremor = animationState.tremor;
+          
+          // Apply tension
+          if (shape.type === 'circle') {
+            shape.scale = 1 + animationState.tension * 0.2;
+          } else if (shape.type === 'ring') {
+            shape.thickness = 2 + animationState.tension * 8;
+          }
+          
+          // Apply rupture
+          if (animationState.rupture > 0.3) {
+            if (shape.type === 'line') {
+              shape.x1 += (Math.random() - 0.5) * animationState.rupture * 10;
+              shape.y1 += (Math.random() - 0.5) * animationState.rupture * 10;
+            }
+          }
+        });
+        
+        // Update colors based on state
+        const tensionColor = { r: 230, g: 57, b: 70 }; // Red
+        const calmColor = { r: 29, g: 53, b: 87 };    // Blue
+        
+        const blendFactor = animationState.tension;
+        animationState.baseColor = {
+          r: calmColor.r * (1 - blendFactor) + tensionColor.r * blendFactor,
+          g: calmColor.g * (1 - blendFactor) + tensionColor.g * blendFactor,
+          b: calmColor.b * (1 - blendFactor) + tensionColor.b * blendFactor
+        };
+        
+        // Invert for secondary color
+        animationState.secondaryColor = {
+          r: tensionColor.r * (1 - blendFactor) + calmColor.r * blendFactor,
+          g: tensionColor.g * (1 - blendFactor) + calmColor.g * blendFactor,
+          b: tensionColor.b * (1 - blendFactor) + calmColor.b * blendFactor
+        };
+      }
+      
+      // Draw functions
+      function drawCircle(shape) {
+        const { x, y, radius, tremor, opacity } = shape;
+        
+        ctx.save();
+        ctx.globalAlpha = opacity;
+        
+        const tremorOffset = tremor * 3;
+        const actualRadius = radius + (Math.random() - 0.5) * tremorOffset;
+        
+        ctx.beginPath();
+        ctx.arc(
+          x + (Math.random() - 0.5) * tremorOffset, 
+          y + (Math.random() - 0.5) * tremorOffset, 
+          actualRadius, 
+          0, 
+          Math.PI * 2
+        );
+        
+        const gradient = ctx.createRadialGradient(x, y, 0, x, y, actualRadius);
+        gradient.addColorStop(0, `rgba(${animationState.baseColor.r}, ${animationState.baseColor.g}, ${animationState.baseColor.b}, ${opacity})`);
+        gradient.addColorStop(1, `rgba(${animationState.secondaryColor.r}, ${animationState.secondaryColor.g}, ${animationState.secondaryColor.b}, 0)`);
+        
+        ctx.fillStyle = gradient;
+        ctx.fill();
+        ctx.restore();
+      }
+      
+      function drawRing(shape) {
+        const { x, y, radius, thickness, tremor, rotation, opacity } = shape;
+        
+        ctx.save();
+        ctx.globalAlpha = opacity;
+        
+        const tremorOffset = tremor * 3;
+        const segments = 36;
+        const angleStep = (Math.PI * 2) / segments;
+        
+        ctx.beginPath();
+        
+        for (let i = 0; i <= segments; i++) {
+          const angle = i * angleStep + rotation;
+          const radiusVariation = (Math.random() - 0.5) * tremor * thickness * 2;
+          const actualRadius = radius + radiusVariation;
+          
+          const xPos = x + Math.cos(angle) * actualRadius;
+          const yPos = y + Math.sin(angle) * actualRadius;
+          
+          if (i === 0) {
+            ctx.moveTo(xPos, yPos);
+          } else {
+            ctx.lineTo(xPos, yPos);
+          }
+        }
+        
+        ctx.strokeStyle = `rgba(${animationState.baseColor.r}, ${animationState.baseColor.g}, ${animationState.baseColor.b}, ${opacity})`;
+        ctx.lineWidth = thickness;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+        ctx.restore();
+      }
+      
+      function drawLine(shape) {
+        const { x1, y1, x2, y2, thickness, tremor, opacity } = shape;
+        
+        ctx.save();
+        ctx.globalAlpha = opacity;
+        
+        const tremorOffset = tremor * 5;
+        
+        ctx.beginPath();
+        ctx.moveTo(
+          x1 + (Math.random() - 0.5) * tremorOffset,
+          y1 + (Math.random() - 0.5) * tremorOffset
+        );
+        ctx.lineTo(
+          x2 + (Math.random() - 0.5) * tremorOffset,
+          y2 + (Math.random() - 0.5) * tremorOffset
+        );
+        
+        const gradient = ctx.createLinearGradient(x1, y1, x2, y2);
+        gradient.addColorStop(0, `rgba(${animationState.baseColor.r}, ${animationState.baseColor.g}, ${animationState.baseColor.b}, ${opacity})`);
+        gradient.addColorStop(1, `rgba(${animationState.secondaryColor.r}, ${animationState.secondaryColor.g}, ${animationState.secondaryColor.b}, ${opacity / 2})`);
+        
+        ctx.strokeStyle = gradient;
+        ctx.lineWidth = thickness;
+        ctx.lineCap = 'round';
+        ctx.stroke();
+        ctx.restore();
+      }
+      
+      // Main draw function
+      function draw() {
+        // Clear canvas with semi-transparent black for trail effect
+        ctx.fillStyle = 'rgba(18, 18, 18, 0.1)';
+        ctx.fillRect(0, 0, width, height);
+        
+        // Draw shapes
+        animationState.shapes.forEach(shape => {
+          if (shape.type === 'circle') {
+            drawCircle(shape);
+          } else if (shape.type === 'ring') {
+            drawRing(shape);
+          } else if (shape.type === 'line') {
+            drawLine(shape);
+          }
+          
+          // Rotate shapes
+          if (shape.rotation !== undefined) {
+            shape.rotation += 0.002 * (1 + animationState.tension);
+          }
+        });
+        
+        // Draw rupture effect
+        if (animationState.rupture > 0.3) {
+          ctx.save();
+          ctx.globalAlpha = animationState.rupture * 0.5;
+          ctx.globalCompositeOperation = 'difference';
+          ctx.fillStyle = `rgb(${animationState.baseColor.r}, ${animationState.baseColor.g}, ${animationState.baseColor.b})`;
+          ctx.fillRect(0, 0, width, height);
+          ctx.restore();
+        }
+      }
+      
+      // Animation loop
+      function animate() {
+        requestAnimationFrame(animate);
+        processAudio();
+        draw();
+      }
+      
+      // Event listeners
+      window.addEventListener('resize', handleResize);
+      document.getElementById('start-button').addEventListener('click', initAudio);
+      
+      // Initial setup
+      handleResize();
+    });
+  </script>
+</body>
+</html>

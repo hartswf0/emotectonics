@@ -1,0 +1,791 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relationship Seismograph</title>
+    <style>
+        :root {
+            --dark-bg: #121418;
+            --darker-bg: #0a0c0f;
+            --accent: #59b9c6;
+            --accent-glow: rgba(89, 185, 198, 0.3);
+            --text: #e0e0e0;
+            --secondary-text: #a0a0a0;
+            --stable: #3fb56e;
+            --tremor: #e2c14f;
+            --eruption: #e25f4f;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Roboto Mono', monospace;
+        }
+        
+        body {
+            background-color: var(--dark-bg);
+            color: var(--text);
+            height: 100vh;
+            width: 100%;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            touch-action: manipulation;
+        }
+        
+        .app-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 1rem;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 1rem;
+        }
+        
+        .title {
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+        
+        .title span {
+            color: var(--accent);
+        }
+        
+        .controls {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+        }
+        
+        .btn {
+            background: var(--darker-bg);
+            color: var(--text);
+            border: 1px solid var(--accent);
+            border-radius: 0.5rem;
+            padding: 0.75rem 1.5rem;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 0.5rem;
+            box-shadow: 0 0 10px var(--accent-glow);
+        }
+        
+        .btn:active {
+            transform: scale(0.95);
+        }
+        
+        .btn.primary {
+            background-color: var(--accent);
+            color: var(--darker-bg);
+        }
+        
+        .btn-record {
+            flex: 1;
+            height: 60px;
+            border-radius: 30px;
+            margin: 0.5rem 0;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .btn-record.recording {
+            background-color: var(--eruption);
+            border-color: var(--eruption);
+            animation: pulse 1.5s infinite;
+        }
+        
+        .seismograph {
+            flex: 1;
+            position: relative;
+            background-color: var(--darker-bg);
+            border-radius: 1rem;
+            overflow: hidden;
+            margin-bottom: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 20px rgba(0, 0, 0, 0.5);
+        }
+        
+        .seismic-line {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .grid-lines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-around;
+            opacity: 0.4;
+        }
+        
+        .grid-line {
+            width: 100%;
+            height: 1px;
+            background-color: var(--accent);
+            position: relative;
+        }
+        
+        .grid-line::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to right, transparent 0%, var(--accent) 50%, transparent 100%);
+            opacity: 0.5;
+        }
+        
+        canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            background: linear-gradient(to right, var(--darker-bg), transparent 20%, transparent 80%, var(--darker-bg));
+            z-index: 1;
+        }
+        
+        .map-container {
+            height: 180px;
+            background-color: var(--darker-bg);
+            border-radius: 1rem;
+            position: relative;
+            overflow: hidden;
+            margin-bottom: 1rem;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .status {
+            padding: 0.5rem;
+            background-color: var(--darker-bg);
+            border-radius: 0.5rem;
+            margin-bottom: 1rem;
+            text-align: center;
+            border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+        
+        .status-label {
+            font-size: 0.8rem;
+            color: var(--secondary-text);
+            margin-bottom: 0.25rem;
+        }
+        
+        .status-value {
+            font-size: 1.2rem;
+            color: var(--text);
+        }
+        
+        .status-value.stable {
+            color: var(--stable);
+        }
+        
+        .status-value.tremor {
+            color: var(--tremor);
+        }
+        
+        .status-value.eruption {
+            color: var(--eruption);
+        }
+        
+        .modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.9);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            padding: 1.5rem;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.3s ease;
+        }
+        
+        .modal.active {
+            opacity: 1;
+            pointer-events: all;
+        }
+        
+        .modal-content {
+            background-color: var(--dark-bg);
+            border-radius: 1rem;
+            width: 100%;
+            max-width: 500px;
+            padding: 1.5rem;
+            position: relative;
+            box-shadow: 0 0 30px var(--accent-glow);
+            border: 1px solid var(--accent);
+        }
+        
+        .modal-title {
+            font-size: 1.2rem;
+            margin-bottom: 1rem;
+            color: var(--accent);
+            text-align: center;
+        }
+        
+        .modal-text {
+            margin-bottom: 1.5rem;
+            line-height: 1.5;
+        }
+        
+        .modal-btn-container {
+            display: flex;
+            justify-content: center;
+            gap: 1rem;
+        }
+        
+        .recalibration-steps {
+            margin: 1.5rem 0;
+        }
+        
+        .recalibration-step {
+            display: flex;
+            gap: 1rem;
+            margin-bottom: 1rem;
+            padding: 1rem;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 0.5rem;
+        }
+        
+        .step-icon {
+            font-size: 1.5rem;
+            color: var(--accent);
+        }
+        
+        .step-content h3 {
+            font-size: 1rem;
+            margin-bottom: 0.5rem;
+        }
+        
+        .step-content p {
+            font-size: 0.9rem;
+            color: var(--secondary-text);
+        }
+        
+        .breathing-animation {
+            width: 100px;
+            height: 100px;
+            background-color: var(--accent);
+            border-radius: 50%;
+            margin: 2rem auto;
+            animation: breathing 4s infinite ease-in-out;
+        }
+        
+        @keyframes breathing {
+            0%, 100% {
+                transform: scale(0.8);
+                opacity: 0.5;
+            }
+            50% {
+                transform: scale(1.2);
+                opacity: 1;
+            }
+        }
+        
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.7;
+            }
+        }
+        
+        #memory-display {
+            text-align: center;
+            margin: 1rem 0;
+            padding: 1rem;
+            background-color: rgba(255, 255, 255, 0.05);
+            border-radius: 0.5rem;
+        }
+        
+        #memory-date {
+            font-size: 0.8rem;
+            color: var(--accent);
+            margin-bottom: 0.5rem;
+        }
+        
+        #memory-text {
+            font-style: italic;
+        }
+        
+        .fault-lines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: 2;
+        }
+    </style>
+</head>
+<body>
+    <div class="app-container">
+        <header>
+            <div class="title">
+                <span>🧭</span> Relationship Seismograph
+            </div>
+            <div class="date" id="current-date">--</div>
+        </header>
+        
+        <div class="status">
+            <div class="status-label">Emotional Status</div>
+            <div class="status-value stable" id="emotional-status">Stable Ground</div>
+        </div>
+        
+        <div class="seismograph">
+            <div class="grid-lines">
+                <div class="grid-line"></div>
+                <div class="grid-line"></div>
+                <div class="grid-line"></div>
+            </div>
+            <canvas id="seismograph-canvas"></canvas>
+            <div class="overlay"></div>
+        </div>
+        
+        <div class="map-container">
+            <canvas id="map-canvas"></canvas>
+            <div class="fault-lines" id="fault-lines"></div>
+        </div>
+        
+        <div class="controls">
+            <button class="btn btn-record" id="record-btn">
+                Hold to Speak Your Feelings
+            </button>
+        </div>
+    </div>
+    
+    <div class="modal" id="intro-modal">
+        <div class="modal-content">
+            <div class="modal-title">Welcome to the Relationship Seismograph</div>
+            <div class="modal-text">
+                This is a ritualistic tool for tracking the emotional geology of your relationship. Instead of passively measuring behaviors, you and your partner will intentionally check in, mapping the subtle tremors and movements of your connection.
+            </div>
+            <div class="modal-text">
+                <strong>How to use:</strong><br>
+                1. Find a quiet space with your partner<br>
+                2. Take turns speaking your feelings into the seismograph<br>
+                3. The tool will analyze vocal tone and intensity<br>
+                4. If tension is detected, a recalibration ritual will be suggested
+            </div>
+            <div class="modal-btn-container">
+                <button class="btn primary" id="intro-start-btn">Begin the Ritual</button>
+            </div>
+        </div>
+    </div>
+    
+    <div class="modal" id="recalibration-modal">
+        <div class="modal-content">
+            <div class="modal-title">Recalibration Ritual</div>
+            <div class="modal-text">
+                We've detected emotional tremors. Let's recalibrate to prevent further tension.
+            </div>
+            
+            <div class="recalibration-steps">
+                <div class="recalibration-step">
+                    <div class="step-icon">💬</div>
+                    <div class="step-content">
+                        <h3>30-Second Perspective Shift</h3>
+                        <p>Take turns re-explaining the tension from a neutral point of view.</p>
+                    </div>
+                </div>
+                
+                <div class="recalibration-step">
+                    <div class="step-icon">📖</div>
+                    <div class="step-content">
+                        <h3>Relationship Grounding</h3>
+                        <p>Remember this moment you shared:</p>
+                        <div id="memory-display">
+                            <div id="memory-date">October 12, 2024</div>
+                            <div id="memory-text">"That weekend we went hiking and got caught in the rain, but couldn't stop laughing."</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="recalibration-step">
+                    <div class="step-icon">🌬️</div>
+                    <div class="step-content">
+                        <h3>Breath & Release</h3>
+                        <p>Take three slow breaths together, following the animation below.</p>
+                        <div class="breathing-animation" id="breathing-animation"></div>
+                    </div>
+                </div>
+                
+                <div class="recalibration-step">
+                    <div class="step-icon">🗺️</div>
+                    <div class="step-content">
+                        <h3>Adjusting the Fault Line</h3>
+                        <p>Do you need to discuss this further, or is it just a small tremor?</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="modal-btn-container">
+                <button class="btn" id="tremor-btn">Just a Tremor</button>
+                <button class="btn primary" id="discuss-btn">Need to Discuss</button>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // DOM Elements
+        const recordBtn = document.getElementById('record-btn');
+        const seismographCanvas = document.getElementById('seismograph-canvas');
+        const mapCanvas = document.getElementById('map-canvas');
+        const faultLinesContainer = document.getElementById('fault-lines');
+        const emotionalStatus = document.getElementById('emotional-status');
+        const currentDate = document.getElementById('current-date');
+        const introModal = document.getElementById('intro-modal');
+        const recalibrationModal = document.getElementById('recalibration-modal');
+        const introStartBtn = document.getElementById('intro-start-btn');
+        const tremorBtn = document.getElementById('tremor-btn');
+        const discussBtn = document.getElementById('discuss-btn');
+        
+        // Canvas contexts
+        const seismographCtx = seismographCanvas.getContext('2d');
+        const mapCtx = mapCanvas.getContext('2d');
+        
+        // Set canvas dimensions
+        function resizeCanvas() {
+            seismographCanvas.width = seismographCanvas.offsetWidth * window.devicePixelRatio;
+            seismographCanvas.height = seismographCanvas.offsetHeight * window.devicePixelRatio;
+            mapCanvas.width = mapCanvas.offsetWidth * window.devicePixelRatio;
+            mapCanvas.height = mapCanvas.offsetHeight * window.devicePixelRatio;
+            seismographCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+            mapCtx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        }
+        
+        // Initialize
+        function init() {
+            resizeCanvas();
+            setCurrentDate();
+            showIntroModal();
+            initializeMap();
+            setDefaultWaveform();
+            
+            // Event listeners
+            window.addEventListener('resize', resizeCanvas);
+            recordBtn.addEventListener('touchstart', startRecording);
+            recordBtn.addEventListener('touchend', stopRecording);
+            recordBtn.addEventListener('mousedown', startRecording);
+            recordBtn.addEventListener('mouseup', stopRecording);
+            
+            introStartBtn.addEventListener('click', closeIntroModal);
+            tremorBtn.addEventListener('click', handleTremor);
+            discussBtn.addEventListener('click', handleDiscussion);
+        }
+        
+        // Date formatting
+        function setCurrentDate() {
+            const date = new Date();
+            const options = { weekday: 'long', year: 'numeric', month: 'short', day: 'numeric' };
+            currentDate.textContent = date.toLocaleDateString('en-US', options);
+        }
+        
+        // Modal controls
+        function showIntroModal() {
+            introModal.classList.add('active');
+        }
+        
+        function closeIntroModal() {
+            introModal.classList.remove('active');
+        }
+        
+        function showRecalibrationModal() {
+            recalibrationModal.classList.add('active');
+        }
+        
+        function closeRecalibrationModal() {
+            recalibrationModal.classList.remove('active');
+        }
+        
+        // Recording functionality
+        let isRecording = false;
+        let recordingTimeout;
+        let animationFrameId;
+        let waveformData = [];
+        let emotionalIntensity = 0;
+        
+        function startRecording() {
+            isRecording = true;
+            recordBtn.classList.add('recording');
+            recordBtn.textContent = 'Listening...';
+            
+            // Simulate recording for 5 seconds max
+            recordingTimeout = setTimeout(() => {
+                stopRecording();
+            }, 5000);
+            
+            // Start animating waveform
+            animateWaveform();
+            
+            // Simulate increasing emotional intensity
+            simulateEmotionalIntensity();
+        }
+        
+        function stopRecording() {
+            if (!isRecording) return;
+            
+            isRecording = false;
+            recordBtn.classList.remove('recording');
+            recordBtn.textContent = 'Hold to Speak Your Feelings';
+            clearTimeout(recordingTimeout);
+            cancelAnimationFrame(animationFrameId);
+            
+            // Process the "recorded" emotional data
+            processEmotionalData();
+        }
+        
+        function simulateEmotionalIntensity() {
+            // Random emotional intensity (0-100)
+            // In a real app, this would be derived from voice analysis
+            emotionalIntensity = Math.random() * 100;
+        }
+        
+        function processEmotionalData() {
+            // Update status based on intensity
+            updateEmotionalStatus(emotionalIntensity);
+            
+            // Update map with a new fault line
+            addFaultLine(emotionalIntensity);
+            
+            // If intensity is high, trigger recalibration
+            if (emotionalIntensity > 40) {
+                setTimeout(() => {
+                    showRecalibrationModal();
+                }, 1000);
+            }
+        }
+        
+        function updateEmotionalStatus(intensity) {
+            emotionalStatus.classList.remove('stable', 'tremor', 'eruption');
+            
+            if (intensity < 30) {
+                emotionalStatus.textContent = 'Stable Ground';
+                emotionalStatus.classList.add('stable');
+            } else if (intensity < 70) {
+                emotionalStatus.textContent = 'Emotional Tremor Detected';
+                emotionalStatus.classList.add('tremor');
+            } else {
+                emotionalStatus.textContent = 'Potential Eruption Warning';
+                emotionalStatus.classList.add('eruption');
+            }
+        }
+        
+        // Seismograph animation
+        function setDefaultWaveform() {
+            waveformData = Array(100).fill(0).map(() => Math.random() * 5 - 2.5);
+            drawWaveform();
+        }
+        
+        function animateWaveform() {
+            // Shift existing data
+            waveformData.shift();
+            
+            // Add new value based on simulated intensity
+            const baseAmplitude = isRecording ? 20 : 5;
+            const newValue = (Math.random() * baseAmplitude) - (baseAmplitude / 2);
+            waveformData.push(newValue);
+            
+            // Draw the waveform
+            drawWaveform();
+            
+            // Continue animation
+            animationFrameId = requestAnimationFrame(animateWaveform);
+        }
+        
+        function drawWaveform() {
+            const width = seismographCanvas.width / window.devicePixelRatio;
+            const height = seismographCanvas.height / window.devicePixelRatio;
+            const centerY = height / 2;
+            
+            // Clear canvas
+            seismographCtx.clearRect(0, 0, width, height);
+            
+            // Draw waveform
+            seismographCtx.beginPath();
+            seismographCtx.moveTo(0, centerY + waveformData[0]);
+            
+            for (let i = 1; i < waveformData.length; i++) {
+                const x = (i / waveformData.length) * width;
+                const y = centerY + waveformData[i];
+                seismographCtx.lineTo(x, y);
+            }
+            
+            seismographCtx.strokeStyle = 'rgba(89, 185, 198, 0.8)';
+            seismographCtx.lineWidth = 2;
+            seismographCtx.stroke();
+        }
+        
+        // Emotional map visualization
+        let mapData = [];
+        
+        function initializeMap() {
+            // Generate initial map data (7 days x 3 intensity levels)
+            const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+            mapData = days.map(day => ({
+                day,
+                intensity: Math.random() * 30 // Start with low intensity
+            }));
+            
+            drawMap();
+        }
+        
+        function drawMap() {
+            const width = mapCanvas.width / window.devicePixelRatio;
+            const height = mapCanvas.height / window.devicePixelRatio;
+            
+            // Clear canvas
+            mapCtx.clearRect(0, 0, width, height);
+            
+            // Draw background
+            const gradient = mapCtx.createRadialGradient(
+                width / 2, height / 2, 10,
+                width / 2, height / 2, width / 2
+            );
+            gradient.addColorStop(0, '#232830');
+            gradient.addColorStop(1, '#0a0c0f');
+            mapCtx.fillStyle = gradient;
+            mapCtx.fillRect(0, 0, width, height);
+            
+            // Draw grid
+            mapCtx.strokeStyle = 'rgba(255, 255, 255, 0.1)';
+            mapCtx.lineWidth = 1;
+            
+            // Vertical lines (days)
+            for (let i = 1; i < 7; i++) {
+                const x = (i / 7) * width;
+                mapCtx.beginPath();
+                mapCtx.moveTo(x, 0);
+                mapCtx.lineTo(x, height);
+                mapCtx.stroke();
+            }
+            
+            // Horizontal lines (intensity levels)
+            for (let i = 1; i < 3; i++) {
+                const y = (i / 3) * height;
+                mapCtx.beginPath();
+                mapCtx.moveTo(0, y);
+                mapCtx.lineTo(width, y);
+                mapCtx.stroke();
+            }
+            
+            // Draw day labels
+            mapCtx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+            mapCtx.font = '10px Roboto Mono';
+            mapCtx.textAlign = 'center';
+            
+            mapData.forEach((data, i) => {
+                const x = ((i + 0.5) / 7) * width;
+                mapCtx.fillText(data.day, x, height - 10);
+            });
+            
+            // Draw intensity zones
+            mapData.forEach((data, i) => {
+                const x = (i / 7) * width;
+                const w = width / 7;
+                
+                let color;
+                if (data.intensity < 30) {
+                    color = 'rgba(63, 181, 110, 0.2)';
+                } else if (data.intensity < 70) {
+                    color = 'rgba(226, 193, 79, 0.2)';
+                } else {
+                    color = 'rgba(226, 95, 79, 0.2)';
+                }
+                
+                mapCtx.fillStyle = color;
+                mapCtx.fillRect(x, 0, w, height);
+            });
+        }
+        
+        function addFaultLine(intensity) {
+            // Get today's day index (0-6)
+            const today = new Date().getDay();
+            const dayIndex = today === 0 ? 6 : today - 1; // Convert to Mon-Sun index
+            
+            // Update map data
+            mapData[dayIndex].intensity = intensity;
+            
+            // Redraw map
+            drawMap();
+            
+            // If intensity is high enough, add a visual fault line
+            if (intensity > 50) {
+                const faultLine = document.createElement('div');
+                faultLine.style.position = 'absolute';
+                faultLine.style.height = '100%';
+                faultLine.style.width = '2px';
+                faultLine.style.left = `${((dayIndex + 0.5) / 7) * 100}%`;
+                faultLine.style.background = intensity > 70 ? 'var(--eruption)' : 'var(--tremor)';
+                faultLine.style.boxShadow = `0 0 10px ${intensity > 70 ? 'var(--eruption)' : 'var(--tremor)'}`;
+                faultLine.style.opacity = '0.7';
+                faultLine.style.transform = 'rotate(2deg)';
+                
+                faultLinesContainer.appendChild(faultLine);
+                
+                // Animate fault line
+                setTimeout(() => {
+                    faultLine.style.transition = 'opacity 5s ease';
+                    faultLine.style.opacity = '0.3';
+                }, 1000);
+            }
+        }
+        
+        // Handle recalibration responses
+        function handleTremor() {
+            closeRecalibrationModal();
+            // Update status to stable
+            updateEmotionalStatus(20);
+        }
+        
+        function handleDiscussion() {
+            closeRecalibrationModal();
+            // Mark this as an open discussion point (in a real app, would save this)
+            alert('This tension has been marked for later discussion when emotions are stable.');
+        }
+        
+        // Initialize on load
+        window.addEventListener('load', init);
+    </script>
+</body>
+</html>

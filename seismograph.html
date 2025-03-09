@@ -1,0 +1,904 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Sonic Living Relationship Seismograph</title>
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --stable-color: #2a9d8f;
+      --tension-color: #e9c46a;
+      --rupture-color: #e76f51;
+      --background-color: #0a0a15;
+      --text-color: #e0e0e0;
+      --accent-color: #4361ee;
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Cinzel', serif;
+    }
+    
+    body {
+      background-color: var(--background-color);
+      color: var(--text-color);
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      overflow: hidden;
+      position: relative;
+    }
+    
+    #stars {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      z-index: 0;
+      opacity: 0.5;
+    }
+    
+    .container {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 1rem;
+      height: 100vh;
+      overflow-y: auto;
+    }
+    
+    header {
+      text-align: center;
+      margin-bottom: 1.5rem;
+      padding-top: 1rem;
+    }
+    
+    h1 {
+      font-size: 1.5rem;
+      margin-bottom: 0.5rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+    }
+    
+    .subtitle {
+      font-size: 0.8rem;
+      opacity: 0.8;
+      font-style: italic;
+    }
+    
+    /* Seismograph display */
+    #seismograph-container {
+      width: 100%;
+      height: 40vh;
+      background-color: rgba(10, 10, 25, 0.7);
+      border-radius: 10px;
+      position: relative;
+      overflow: hidden;
+      margin-bottom: 1.5rem;
+      box-shadow: 0 0 20px rgba(67, 97, 238, 0.3);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    #terrain-map {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: linear-gradient(to bottom, rgba(10, 10, 25, 0.8), rgba(10, 10, 25, 0.5));
+    }
+    
+    #seismograph {
+      position: absolute;
+      bottom: 0;
+      left: 0;
+      width: 100%;
+      height: 50%;
+      display: flex;
+      align-items: flex-end;
+    }
+    
+    .seismic-line {
+      height: 100%;
+      width: 2px;
+      margin-right: 1px;
+      background-color: var(--stable-color);
+      transform-origin: bottom;
+      transition: height 0.1s ease-out;
+    }
+    
+    #emotion-indicator {
+      position: absolute;
+      top: 10px;
+      right: 10px;
+      padding: 5px 10px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      background-color: var(--stable-color);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    
+    #emotion-indicator::before {
+      content: "";
+      display: block;
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background-color: currentColor;
+    }
+    
+    /* Input section */
+    .ritual-section {
+      width: 100%;
+      margin-bottom: 1.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+    
+    .ritual-title {
+      font-size: 1rem;
+      margin-bottom: 1rem;
+      text-align: center;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+    }
+    
+    .input-container {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 1rem;
+    }
+    
+    .microphone-button {
+      width: 60px;
+      height: 60px;
+      border-radius: 50%;
+      background-color: rgba(255, 255, 255, 0.1);
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .microphone-button svg {
+      width: 24px;
+      height: 24px;
+      fill: var(--text-color);
+      z-index: 2;
+    }
+    
+    .microphone-button.recording {
+      background-color: rgba(231, 111, 81, 0.2);
+      border-color: var(--rupture-color);
+    }
+    
+    .microphone-button .ripple {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      border-radius: 50%;
+      background-color: rgba(255, 255, 255, 0.1);
+      transform: scale(0);
+      animation: ripple 2s infinite;
+    }
+    
+    @keyframes ripple {
+      0% {
+        transform: scale(0);
+        opacity: 1;
+      }
+      100% {
+        transform: scale(3);
+        opacity: 0;
+      }
+    }
+    
+    .record-instruction {
+      font-size: 0.9rem;
+      text-align: center;
+      max-width: 280px;
+      opacity: 0.8;
+    }
+    
+    /* Recalibration section */
+    #recalibration {
+      width: 100%;
+      background-color: rgba(10, 10, 25, 0.6);
+      border-radius: 10px;
+      padding: 1rem;
+      margin-bottom: 1.5rem;
+      display: none;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      box-shadow: 0 0 20px rgba(67, 97, 238, 0.2);
+    }
+    
+    .recalibration-title {
+      text-align: center;
+      margin-bottom: 1rem;
+      font-size: 1rem;
+      color: var(--tension-color);
+    }
+    
+    .ritual-cards {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    
+    .ritual-card {
+      background-color: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 0.8rem;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .ritual-card:hover, .ritual-card.active {
+      background-color: rgba(255, 255, 255, 0.1);
+      border-color: var(--accent-color);
+    }
+    
+    .ritual-card h3 {
+      font-size: 0.9rem;
+      margin-bottom: 0.5rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .ritual-card h3 svg {
+      width: 16px;
+      height: 16px;
+      fill: var(--accent-color);
+    }
+    
+    .ritual-card p {
+      font-size: 0.8rem;
+      opacity: 0.8;
+    }
+    
+    .ritual-content {
+      margin-top: 0.8rem;
+      display: none;
+    }
+    
+    .breathing-guide {
+      width: 100%;
+      height: 100px;
+      position: relative;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+    }
+    
+    .breath-circle {
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      background-color: var(--accent-color);
+      opacity: 0.6;
+      animation: breathe 8s infinite ease-in-out;
+      position: absolute;
+    }
+    
+    @keyframes breathe {
+      0%, 100% {
+        transform: scale(1);
+        opacity: 0.6;
+      }
+      50% {
+        transform: scale(2.5);
+        opacity: 0.2;
+      }
+    }
+    
+    .breath-text {
+      position: absolute;
+      font-size: 0.8rem;
+      opacity: 0.8;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+    
+    #bookmarking-form {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+      margin-top: 0.8rem;
+    }
+    
+    #bookmark-note {
+      width: 100%;
+      padding: 0.8rem;
+      background-color: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 6px;
+      color: var(--text-color);
+      resize: none;
+      min-height: 80px;
+      font-family: inherit;
+    }
+    
+    #bookmark-note:focus {
+      outline: none;
+      border-color: var(--accent-color);
+    }
+    
+    .save-bookmark {
+      padding: 0.6rem 1rem;
+      background-color: rgba(67, 97, 238, 0.3);
+      border: 1px solid var(--accent-color);
+      color: var(--text-color);
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: 0.8rem;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      transition: all 0.3s ease;
+      align-self: flex-end;
+    }
+    
+    .save-bookmark:hover {
+      background-color: rgba(67, 97, 238, 0.5);
+    }
+    
+    /* History section */
+    .history-section {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    
+    .history-title {
+      font-size: 1rem;
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 0.5rem;
+    }
+    
+    .bookmarks-container {
+      display: flex;
+      flex-direction: column;
+      gap: 0.8rem;
+    }
+    
+    .bookmark-item {
+      background-color: rgba(255, 255, 255, 0.05);
+      border-radius: 8px;
+      padding: 0.8rem;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .bookmark-date {
+      font-size: 0.7rem;
+      opacity: 0.6;
+      margin-bottom: 0.3rem;
+    }
+    
+    .bookmark-content {
+      font-size: 0.9rem;
+    }
+    
+    .bookmark-item[data-type="tension"] {
+      border-left: 3px solid var(--tension-color);
+    }
+    
+    .bookmark-item[data-type="rupture"] {
+      border-left: 3px solid var(--rupture-color);
+    }
+    
+    /* Loading Animation */
+    .loading {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background-color: var(--background-color);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    
+    .loading-circle {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      border: 2px solid rgba(255, 255, 255, 0.1);
+      border-top-color: var(--accent-color);
+      animation: spin 1.5s linear infinite;
+    }
+    
+    .loading-text {
+      font-size: 1rem;
+      letter-spacing: 3px;
+      text-transform: uppercase;
+      opacity: 0;
+      animation: fade 2s infinite;
+    }
+    
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    
+    @keyframes fade {
+      0%, 100% { opacity: 0.2; }
+      50% { opacity: 1; }
+    }
+    
+    @media (min-width: 768px) {
+      .container {
+        max-width: 600px;
+        margin: 0 auto;
+      }
+      
+      h1 {
+        font-size: 2rem;
+      }
+      
+      .ritual-cards {
+        flex-direction: row;
+        flex-wrap: wrap;
+      }
+      
+      .ritual-card {
+        flex: 1 1 calc(50% - 0.5rem);
+        min-width: calc(50% - 0.5rem);
+      }
+    }
+  </style>
+</head>
+<body>
+  <div id="stars"></div>
+  
+  <div class="loading">
+    <div class="loading-circle"></div>
+    <div class="loading-text">Calibrating</div>
+  </div>
+  
+  <div class="container">
+    <header>
+      <h1>Relationship Seismograph</h1>
+      <p class="subtitle">Emotional attunement through sacred technology</p>
+    </header>
+    
+    <div id="seismograph-container">
+      <div id="terrain-map"></div>
+      <div id="seismograph"></div>
+      <div id="emotion-indicator">Stable Ground</div>
+    </div>
+    
+    <section class="ritual-section">
+      <h2 class="ritual-title">Speak Your Truth</h2>
+      <div class="input-container">
+        <div class="microphone-button" id="record-button">
+          <div class="ripple"></div>
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+            <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
+            <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
+          </svg>
+        </div>
+        <p class="record-instruction">Speak a single sentence about how you feel in this moment. The system analyzes your tone, not your words.</p>
+      </div>
+    </section>
+    
+    <section id="recalibration">
+      <h2 class="recalibration-title">Recalibration Rituals</h2>
+      <div class="ritual-cards">
+        <div class="ritual-card" id="perspective-ritual">
+          <h3>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+              <path d="M12 4.5C7 4.5 2.73 7.61 1 12c1.73 4.39 6 7.5 11 7.5s9.27-3.11 11-7.5c-1.73-4.39-6-7.5-11-7.5zM12 17c-2.76 0-5-2.24-5-5s2.24-5 5-5 5 2.24 5 5-2.24 5-5 5zm0-8c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3z"/>
+            </svg>
+            Perspective Shift Ritual
+          </h3>
+          <p>Reframe the current moment from a neutral perspective</p>
+          <div class="ritual-content" id="perspective-content">
+            <p>Take a moment to consider what's happening from a different angle. How might a neutral observer describe this situation? What facts remain when emotions are set aside?</p>
+          </div>
+        </div>
+        
+        <div class="ritual-card" id="memory-ritual">
+          <h3>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+              <path d="M13 3c-4.97 0-9 4.03-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.94-2.06l-1.42 1.42C8.27 19.99 10.51 21 13 21c4.97 0 9-4.03 9-9s-4.03-9-9-9zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/>
+            </svg>
+            Shared Memory Activation
+          </h3>
+          <p>Recall a meaningful moment you shared together</p>
+          <div class="ritual-content" id="memory-content">
+            <p>Close your eyes and together recall a moment when you felt deeply connected. What were the sights, sounds, and feelings of that experience? Let this memory ground you in your connection.</p>
+          </div>
+        </div>
+        
+        <div class="ritual-card" id="breathing-ritual">
+          <h3>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8z"/>
+              <path d="M12 6c-3.31 0-6 2.69-6 6s2.69 6 6 6 6-2.69 6-6-2.69-6-6-6zm0 10c-2.21 0-4-1.79-4-4s1.79-4 4-4 4 1.79 4 4-1.79 4-4 4z"/>
+            </svg>
+            Synchronized Breathing
+          </h3>
+          <p>Breathe together to harmonize your energies</p>
+          <div class="ritual-content" id="breathing-content">
+            <div class="breathing-guide">
+              <div class="breath-circle"></div>
+              <div class="breath-text">Breathe</div>
+            </div>
+          </div>
+        </div>
+        
+        <div class="ritual-card" id="bookmarking-ritual">
+          <h3>
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+              <path d="M17 3H7c-1.1 0-1.99.9-1.99 2L5 21l7-3 7 3V5c0-1.1-.9-2-2-2z"/>
+            </svg>
+            Emotional Bookmarking
+          </h3>
+          <p>Mark this moment to revisit later when you're ready</p>
+          <div class="ritual-content" id="bookmarking-content">
+            <form id="bookmarking-form">
+              <textarea id="bookmark-note" placeholder="What would you like to remember about this moment?"></textarea>
+              <button type="submit" class="save-bookmark">Save for Later</button>
+            </form>
+          </div>
+        </div>
+      </div>
+    </section>
+    
+    <section class="history-section">
+      <h2 class="history-title">Emotional Bookmarks</h2>
+      <div class="bookmarks-container" id="bookmarks-list">
+        <!-- Bookmarks will be added here dynamically -->
+      </div>
+    </section>
+  </div>
+  
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.37/Tone.js"></script>
+  <script>
+    // Global variables for microphone handling
+    let mediaStream = null;
+    let audioContext = null;
+    let analyzer = null;
+    let animationFrame = null;
+    
+    // Initialize the application when the DOM is loaded
+    document.addEventListener('DOMContentLoaded', function() {
+      // Loading screen animation
+      setTimeout(() => {
+        document.querySelector('.loading').style.opacity = '0';
+        setTimeout(() => {
+          document.querySelector('.loading').style.display = 'none';
+        }, 500);
+      }, 2500);
+      
+      createStars();
+      initSeismograph();
+      
+      const recordButton = document.getElementById('record-button');
+      recordButton.addEventListener('click', handleRecording);
+      
+      const ritualCards = document.querySelectorAll('.ritual-card');
+      ritualCards.forEach(card => {
+        card.addEventListener('click', function() {
+          const wasActive = this.classList.contains('active');
+          ritualCards.forEach(c => {
+            c.classList.remove('active');
+            const content = c.querySelector('.ritual-content');
+            content.style.display = 'none';
+          });
+          if (!wasActive) {
+            this.classList.add('active');
+            const content = this.querySelector('.ritual-content');
+            content.style.display = 'block';
+          }
+        });
+      });
+      
+      const bookmarkForm = document.getElementById('bookmarking-form');
+      bookmarkForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveBookmark();
+      });
+      
+      loadBookmarks();
+    });
+    
+    function createStars() {
+      const starsContainer = document.getElementById('stars');
+      const starCount = 100;
+      for (let i = 0; i < starCount; i++) {
+        const star = document.createElement('div');
+        star.style.position = 'absolute';
+        star.style.width = `${Math.random() * 2}px`;
+        star.style.height = star.style.width;
+        star.style.backgroundColor = 'white';
+        star.style.borderRadius = '50%';
+        star.style.opacity = Math.random() * 0.8;
+        star.style.left = `${Math.random() * 100}%`;
+        star.style.top = `${Math.random() * 100}%`;
+        star.style.animation = `twinkle ${3 + Math.random() * 7}s infinite`;
+        const styleSheet = document.styleSheets[0];
+        const keyframes = `@keyframes twinkle {
+          0%, 100% { opacity: ${star.style.opacity}; }
+          50% { opacity: ${parseFloat(star.style.opacity) * 0.3}; }
+        }`;
+        styleSheet.insertRule(keyframes, styleSheet.cssRules.length);
+        starsContainer.appendChild(star);
+      }
+    }
+    
+    function initSeismograph() {
+      const seismograph = document.getElementById('seismograph');
+      const lineCount = 100;
+      for (let i = 0; i < lineCount; i++) {
+        const line = document.createElement('div');
+        line.classList.add('seismic-line');
+        const initialHeight = 10 + Math.random() * 20;
+        line.style.height = `${initialHeight}%`;
+        seismograph.appendChild(line);
+      }
+      animateSeismograph('stable');
+    }
+    
+    function animateSeismograph(emotionalState) {
+      const lines = document.querySelectorAll('.seismic-line');
+      const emotionIndicator = document.getElementById('emotion-indicator');
+      if (window.seismographInterval) clearInterval(window.seismographInterval);
+      let baseHeight, variationHeight, animationSpeed, color;
+      let indicatorText = 'Stable Ground';
+      let indicatorColor = 'var(--stable-color)';
+      switch(emotionalState) {
+        case 'stable':
+          baseHeight = 20;
+          variationHeight = 10;
+          animationSpeed = 200;
+          color = 'var(--stable-color)';
+          indicatorText = 'Stable Ground';
+          indicatorColor = 'var(--stable-color)';
+          document.getElementById('recalibration').style.display = 'none';
+          break;
+        case 'tension':
+          baseHeight = 30;
+          variationHeight = 25;
+          animationSpeed = 100;
+          color = 'var(--tension-color)';
+          indicatorText = 'Pressure Buildup';
+          indicatorColor = 'var(--tension-color)';
+          document.getElementById('recalibration').style.display = 'block';
+          break;
+        case 'rupture':
+          baseHeight = 50;
+          variationHeight = 40;
+          animationSpeed = 50;
+          color = 'var(--rupture-color)';
+          indicatorText = 'Fault Line Activation';
+          indicatorColor = 'var(--rupture-color)';
+          document.getElementById('recalibration').style.display = 'block';
+          document.body.classList.add('earthquake');
+          setTimeout(() => {
+            document.body.classList.remove('earthquake');
+          }, 1000);
+          break;
+      }
+      emotionIndicator.textContent = indicatorText;
+      emotionIndicator.style.backgroundColor = indicatorColor;
+      lines.forEach(line => {
+        line.style.backgroundColor = color;
+      });
+      window.seismographInterval = setInterval(() => {
+        lines.forEach(line => {
+          const height = baseHeight + Math.random() * variationHeight;
+          line.style.height = `${height}%`;
+        });
+      }, animationSpeed);
+      // Animate terrain map
+      const terrainMap = document.getElementById('terrain-map');
+      terrainMap.innerHTML = '';
+      const svgNS = "http://www.w3.org/2000/svg";
+      const svg = document.createElementNS(svgNS, "svg");
+      svg.setAttribute("width", "100%");
+      svg.setAttribute("height", "100%");
+      const path = document.createElementNS(svgNS, "path");
+      let pathData = "M0,100 ";
+      let amplitude, frequency;
+      switch(emotionalState) {
+        case 'stable': amplitude = 10; frequency = 0.05; break;
+        case 'tension': amplitude = 20; frequency = 0.1; break;
+        case 'rupture': amplitude = 40; frequency = 0.2; break;
+      }
+      for (let x = 0; x <= 100; x++) {
+        const y = 70 + Math.sin(x * frequency) * amplitude + Math.random() * (amplitude / 2);
+        pathData += `L${x},${y} `;
+      }
+      pathData += "L100,100 L0,100 Z";
+      path.setAttribute("d", pathData);
+      path.setAttribute("fill", `url(#${emotionalState}-gradient)`);
+      const defs = document.createElementNS(svgNS, "defs");
+      const stableGradient = document.createElementNS(svgNS, "linearGradient");
+      stableGradient.setAttribute("id", "stable-gradient");
+      stableGradient.setAttribute("x1", "0%");
+      stableGradient.setAttribute("y1", "0%");
+      stableGradient.setAttribute("x2", "0%");
+      stableGradient.setAttribute("y2", "100%");
+      const stableStop1 = document.createElementNS(svgNS, "stop");
+      stableStop1.setAttribute("offset", "0%");
+      stableStop1.setAttribute("stop-color", "var(--stable-color)");
+      const stableStop2 = document.createElementNS(svgNS, "stop");
+      stableStop2.setAttribute("offset", "100%");
+      stableStop2.setAttribute("stop-color", "#0a0a15");
+      stableGradient.appendChild(stableStop1);
+      stableGradient.appendChild(stableStop2);
+      const tensionGradient = document.createElementNS(svgNS, "linearGradient");
+      tensionGradient.setAttribute("id", "tension-gradient");
+      tensionGradient.setAttribute("x1", "0%");
+      tensionGradient.setAttribute("y1", "0%");
+      tensionGradient.setAttribute("x2", "0%");
+      tensionGradient.setAttribute("y2", "100%");
+      const tensionStop1 = document.createElementNS(svgNS, "stop");
+      tensionStop1.setAttribute("offset", "0%");
+      tensionStop1.setAttribute("stop-color", "var(--tension-color)");
+      const tensionStop2 = document.createElementNS(svgNS, "stop");
+      tensionStop2.setAttribute("offset", "100%");
+      tensionStop2.setAttribute("stop-color", "#0a0a15");
+      tensionGradient.appendChild(tensionStop1);
+      tensionGradient.appendChild(tensionStop2);
+      const ruptureGradient = document.createElementNS(svgNS, "linearGradient");
+      ruptureGradient.setAttribute("id", "rupture-gradient");
+      ruptureGradient.setAttribute("x1", "0%");
+      ruptureGradient.setAttribute("y1", "0%");
+      ruptureGradient.setAttribute("x2", "0%");
+      ruptureGradient.setAttribute("y2", "100%");
+      const ruptureStop1 = document.createElementNS(svgNS, "stop");
+      ruptureStop1.setAttribute("offset", "0%");
+      ruptureStop1.setAttribute("stop-color", "var(--rupture-color)");
+      const ruptureStop2 = document.createElementNS(svgNS, "stop");
+      ruptureStop2.setAttribute("offset", "100%");
+      ruptureStop2.setAttribute("stop-color", "#0a0a15");
+      ruptureGradient.appendChild(ruptureStop1);
+      ruptureGradient.appendChild(ruptureStop2);
+      defs.appendChild(stableGradient);
+      defs.appendChild(tensionGradient);
+      defs.appendChild(ruptureGradient);
+      svg.appendChild(defs);
+      svg.appendChild(path);
+      terrainMap.appendChild(svg);
+    }
+    
+    // Use microphone input to update seismograph in real time
+    async function handleRecording() {
+      const button = document.getElementById('record-button');
+      // If not recording, start capturing microphone input
+      if (!button.classList.contains('recording')) {
+        try {
+          // Ensure Tone.js is started (required by some browsers)
+          await Tone.start();
+          mediaStream = await navigator.mediaDevices.getUserMedia({ audio: true });
+          audioContext = new AudioContext();
+          const source = audioContext.createMediaStreamSource(mediaStream);
+          analyzer = audioContext.createAnalyser();
+          analyzer.fftSize = 2048;
+          source.connect(analyzer);
+          button.classList.add('recording');
+          const dataArray = new Uint8Array(analyzer.frequencyBinCount);
+          const analyze = () => {
+            analyzer.getByteFrequencyData(dataArray);
+            const average = dataArray.reduce((sum, val) => sum + val, 0) / dataArray.length;
+            let emotionalState = 'stable';
+            if (average > 128) emotionalState = 'rupture';
+            else if (average > 64) emotionalState = 'tension';
+            animateSeismograph(emotionalState);
+            if (button.classList.contains('recording')) {
+              animationFrame = requestAnimationFrame(analyze);
+            }
+          };
+          analyze();
+        } catch (err) {
+          console.error('Error accessing microphone:', err);
+          alert('Please allow microphone access to use this feature.');
+        }
+      } else {
+        // Stop recording
+        button.classList.remove('recording');
+        if (mediaStream) mediaStream.getTracks().forEach(track => track.stop());
+        if (audioContext) await audioContext.close();
+        if (animationFrame) cancelAnimationFrame(animationFrame);
+        mediaStream = null;
+        audioContext = null;
+        analyzer = null;
+        animationFrame = null;
+      }
+    }
+    
+    // Save bookmark to localStorage
+    function saveBookmark() {
+      const note = document.getElementById('bookmark-note').value;
+      if (!note.trim()) return;
+      const bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || [];
+      const newBookmark = { date: new Date().toLocaleString(), content: note };
+      bookmarks.push(newBookmark);
+      localStorage.setItem('bookmarks', JSON.stringify(bookmarks));
+      document.getElementById('bookmark-note').value = '';
+      loadBookmarks();
+    }
+    
+    // Load bookmarks from localStorage
+    function loadBookmarks() {
+      const bookmarksContainer = document.getElementById('bookmarks-list');
+      bookmarksContainer.innerHTML = '';
+      const bookmarks = JSON.parse(localStorage.getItem('bookmarks')) || [];
+      bookmarks.forEach(b => {
+        const item = document.createElement('div');
+        item.classList.add('bookmark-item');
+        let type = 'stable';
+        if (b.content.toLowerCase().includes('stress')) {
+          type = 'tension';
+        } else if (b.content.toLowerCase().includes('exploded')) {
+          type = 'rupture';
+        }
+        item.setAttribute('data-type', type);
+        item.innerHTML = `<div class="bookmark-date">${b.date}</div>
+                          <div class="bookmark-content">${b.content}</div>`;
+        bookmarksContainer.appendChild(item);
+      });
+    }
+    
+    window.addEventListener('load', () => {
+      // Start with a brief delay to simulate calibration
+      setTimeout(() => {
+        document.querySelector('.loading').style.opacity = '0';
+        setTimeout(() => {
+          document.querySelector('.loading').style.display = 'none';
+        }, 500);
+      }, 2500);
+      createStars();
+      initSeismograph();
+      
+      // Setup ritual cards and bookmarking
+      const ritualCards = document.querySelectorAll('.ritual-card');
+      ritualCards.forEach(card => {
+        card.addEventListener('click', function() {
+          const wasActive = this.classList.contains('active');
+          ritualCards.forEach(c => {
+            c.classList.remove('active');
+            const content = c.querySelector('.ritual-content');
+            content.style.display = 'none';
+          });
+          if (!wasActive) {
+            this.classList.add('active');
+            const content = this.querySelector('.ritual-content');
+            content.style.display = 'block';
+          }
+        });
+      });
+      
+      const bookmarkForm = document.getElementById('bookmarking-form');
+      bookmarkForm.addEventListener('submit', function(e) {
+        e.preventDefault();
+        saveBookmark();
+      });
+      
+      loadBookmarks();
+    });
+  </script>
+</body>
+</html>

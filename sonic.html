@@ -1,0 +1,582 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Sonic Living Relationship Seismograph</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background-color: #090909;
+      color: #e0e0e0;
+      height: 100vh;
+      overflow: hidden;
+      touch-action: manipulation;
+      position: relative;
+    }
+    .container {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      position: relative;
+    }
+    .seismograph {
+      position: relative;
+      width: 90vw;
+      height: 70vh;
+      border-radius: 50%;
+      background: radial-gradient(circle at center, rgba(40, 40, 50, 0.4), rgba(10, 10, 15, 0.9));
+      box-shadow: 0 0 30px rgba(60, 70, 100, 0.1);
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      opacity: 0;
+      transition: opacity 4s ease-in;
+    }
+    .seismograph.awake {
+      opacity: 1;
+    }
+    .canvas-container {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      z-index: 1;
+    }
+    canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+    .pulse-circle {
+      position: absolute;
+      width: 40%;
+      height: 40%;
+      border-radius: 50%;
+      background: radial-gradient(circle at center, rgba(90, 100, 160, 0.2), rgba(50, 60, 100, 0.05));
+      opacity: 0.2;
+      transform: scale(0.5);
+    }
+    .guide-text {
+      position: absolute;
+      bottom: 10vh;
+      font-size: 0.9rem;
+      text-align: center;
+      letter-spacing: 1px;
+      color: rgba(180, 190, 210, 0.7);
+      opacity: 0;
+      transition: opacity 2s ease;
+      max-width: 80%;
+    }
+    .guide-text.visible {
+      opacity: 1;
+    }
+    .ritual-stage {
+      position: absolute;
+      top: 6vh;
+      font-size: 0.8rem;
+      letter-spacing: 2px;
+      color: rgba(160, 170, 200, 0.6);
+      opacity: 0;
+      transition: opacity 2s ease;
+    }
+    .ritual-stage.visible {
+      opacity: 1;
+    }
+    .touch-indicator {
+      position: absolute;
+      bottom: 20px;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: radial-gradient(circle at center, rgba(90, 100, 160, 0.2), rgba(30, 40, 90, 0.05));
+      opacity: 0;
+      animation: pulse 2s infinite ease-in-out;
+    }
+    @keyframes pulse {
+      0% { transform: scale(0.8); opacity: 0.2; }
+      50% { transform: scale(1.1); opacity: 0.4; }
+      100% { transform: scale(0.8); opacity: 0.2; }
+    }
+    .breath-guide {
+      position: absolute;
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      border: 1px solid rgba(100, 120, 200, 0.2);
+      opacity: 0;
+      transition: all 0.5s ease;
+    }
+    .breath-guide.inhale {
+      animation: inhale 4s forwards;
+    }
+    .breath-guide.exhale {
+      animation: exhale 4s forwards;
+    }
+    @keyframes inhale {
+      from { transform: scale(1); opacity: 0.2; }
+      to { transform: scale(2.5); opacity: 0; }
+    }
+    @keyframes exhale {
+      from { transform: scale(2.5); opacity: 0; }
+      to { transform: scale(1); opacity: 0.2; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="ritual-stage">AWAKENING</div>
+    <div class="seismograph">
+      <div class="pulse-circle"></div>
+      <div class="canvas-container">
+        <canvas id="waveCanvas"></canvas>
+        <canvas id="particleCanvas"></canvas>
+      </div>
+      <div class="breath-guide"></div>
+    </div>
+    <div class="guide-text">Touch to awaken the seismograph</div>
+    <div class="touch-indicator"></div>
+  </div>
+
+  <!-- Tone.js is loaded via CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.37/Tone.js"></script>
+  <script>
+    // Global microphone and audio variables
+    let audioContext, analyzer, microphone, animationFrame;
+    let isMicrophoneActive = false;
+    let isAwake = false;
+    let currentStage = 0;
+    let touchStartTime = 0;
+    let seismicMomentActive = false;
+    let breathSequenceActive = false;
+    
+    // Canvas and animation elements
+    const waveCanvas = document.getElementById('waveCanvas');
+    const waveCtx = waveCanvas.getContext('2d');
+    const particleCanvas = document.getElementById('particleCanvas');
+    const particleCtx = particleCanvas.getContext('2d');
+    const seismograph = document.querySelector('.seismograph');
+    const guideText = document.querySelector('.guide-text');
+    const ritualStage = document.querySelector('.ritual-stage');
+    const pulseCircle = document.querySelector('.pulse-circle');
+    const touchIndicator = document.querySelector('.touch-indicator');
+    const breathGuide = document.querySelector('.breath-guide');
+    
+    // Particle system
+    const particles = [];
+    const MAX_PARTICLES = 100;
+    
+    // Waveform data
+    let waveformData = new Array(128).fill(0);
+    let prevWaveformData = new Array(128).fill(0);
+    let smoothingFactor = 0.2;
+    let energyHistory = new Array(30).fill(0);
+    let colorShift = 0;
+    
+    // Sound synthesis using Tone.js
+    let synth, bassSynth, droneSynth;
+    
+    // Resize canvases to match container
+    function resizeCanvases() {
+      const container = document.querySelector('.canvas-container');
+      waveCanvas.width = container.offsetWidth;
+      waveCanvas.height = container.offsetHeight;
+      particleCanvas.width = container.offsetWidth;
+      particleCanvas.height = container.offsetHeight;
+    }
+    
+    // Initialize the interface
+    function init() {
+      resizeCanvases();
+      window.addEventListener('resize', resizeCanvases);
+      
+      // Initialize Tone.js synths
+      synth = new Tone.PolySynth(Tone.Synth).toDestination();
+      synth.volume.value = -20;
+      
+      bassSynth = new Tone.Synth({
+        oscillator: { type: 'sine' },
+        envelope: { attack: 0.5, decay: 0.2, sustain: 1.0, release: 2.0 }
+      }).toDestination();
+      bassSynth.volume.value = -25;
+      
+      droneSynth = new Tone.FMSynth({
+        harmonicity: 1.5,
+        modulationIndex: 3.5,
+        oscillator: { type: 'sine' },
+        envelope: { attack: 4, decay: 0.1, sustain: 1, release: 8 },
+        modulation: { type: 'triangle' },
+        modulationEnvelope: { attack: 5, decay: 0, sustain: 1, release: 10 }
+      }).toDestination();
+      droneSynth.volume.value = -35;
+      
+      // Add initial touch/click event to wake the seismograph
+      document.addEventListener('touchstart', handleInitialTouch);
+      document.addEventListener('mousedown', handleInitialTouch);
+      
+      // Start gentle pulse animation
+      animatePulse();
+    }
+    
+    // Handle initial touch/click
+    function handleInitialTouch(e) {
+      e.preventDefault();
+      if (!isAwake) {
+        touchStartTime = Date.now();
+        document.removeEventListener('touchstart', handleInitialTouch);
+        document.removeEventListener('mousedown', handleInitialTouch);
+        guideText.textContent = "Hold to awaken...";
+        guideText.classList.add('visible');
+        touchIndicator.style.opacity = '0';
+        animateWakeUp();
+        // Wait for long press
+        document.addEventListener('touchend', checkLongPress);
+        document.addEventListener('mouseup', checkLongPress);
+      }
+    }
+    
+    // Check if the press is long enough to wake up
+    function checkLongPress() {
+      const pressDuration = Date.now() - touchStartTime;
+      document.removeEventListener('touchend', checkLongPress);
+      document.removeEventListener('mouseup', checkLongPress);
+      if (pressDuration > 1500) {
+        wakeSeismograph();
+      } else {
+        guideText.textContent = "Hold longer to establish connection...";
+        document.addEventListener('touchstart', handleInitialTouch);
+        document.addEventListener('mousedown', handleInitialTouch);
+        setTimeout(() => {
+          guideText.textContent = "Touch to awaken the seismograph";
+          touchIndicator.style.opacity = '0.5';
+        }, 2000);
+      }
+    }
+    
+    // Wake up the seismograph interface
+    function wakeSeismograph() {
+      isAwake = true;
+      currentStage = 1;
+      seismograph.classList.add('awake');
+      ritualStage.textContent = "AWAKENING";
+      ritualStage.classList.add('visible');
+      
+      // Start Tone.js context
+      Tone.start().then(() => {
+        playDrone();
+        setTimeout(() => {
+          guideText.textContent = "The seismograph is awakening... Listen...";
+          guideText.classList.add('visible');
+          setTimeout(enterField, 8000);
+        }, 2000);
+      }).catch(err => {
+        console.log("Audio failed to start: ", err);
+        guideText.textContent = "Tap to allow audio access";
+        guideText.classList.add('visible');
+        document.addEventListener('touchstart', () => {
+          Tone.start().then(wakeSeismograph);
+        }, { once: true });
+      });
+      
+      requestAnimationFrame(animate);
+    }
+    
+    // Play a continuous drone sound
+    function playDrone() {
+      droneSynth.triggerAttack("D2");
+      setTimeout(() => {
+        droneSynth.frequency.rampTo("G2", 5);
+        setTimeout(() => {
+          if (currentStage <= 1) {
+            const freq = Math.random() > 0.5 ? "A2" : "E2";
+            droneSynth.frequency.rampTo(freq, 4);
+          }
+        }, 5000);
+      }, 5000);
+    }
+    
+    // Enter the next phase: "The Field"
+    function enterField() {
+      if (!isAwake) return;
+      currentStage = 2;
+      ritualStage.textContent = "ENTERING THE FIELD";
+      guideText.textContent = "Speak softly... The seismograph listens to your rhythm, not your words...";
+      initAudio();
+      setTimeout(unfoldMap, 12000);
+    }
+    
+    // Initialize microphone input processing
+    function initAudio() {
+      if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+        navigator.mediaDevices.getUserMedia({ audio: true })
+          .then(stream => {
+            audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            microphone = audioContext.createMediaStreamSource(stream);
+            analyzer = audioContext.createAnalyser();
+            analyzer.fftSize = 256;
+            analyzer.smoothingTimeConstant = 0.8;
+            microphone.connect(analyzer);
+            isMicrophoneActive = true;
+            analyzeAudio();
+          })
+          .catch(err => {
+            console.error("Microphone access error:", err);
+            guideText.textContent = "Microphone not accessible. Using simulated input.";
+            simulateAudioInput();
+            setTimeout(unfoldMap, 5000);
+          });
+      } else {
+        guideText.textContent = "Microphone not supported in this browser.";
+        simulateAudioInput();
+        setTimeout(unfoldMap, 5000);
+      }
+    }
+    
+    // Analyze microphone audio data
+    function analyzeAudio() {
+      if (!isMicrophoneActive || !analyzer) return;
+      const dataArray = new Uint8Array(analyzer.frequencyBinCount);
+      analyzer.getByteTimeDomainData(dataArray);
+      for (let i = 0; i < dataArray.length; i++) {
+        const normalized = (dataArray[i] / 128) - 1;
+        waveformData[i] = prevWaveformData[i] * (1 - smoothingFactor) + normalized * smoothingFactor;
+        prevWaveformData[i] = waveformData[i];
+      }
+      const energy = waveformData.reduce((sum, val) => sum + Math.abs(val), 0) / waveformData.length;
+      energyHistory.push(energy);
+      energyHistory.shift();
+      const avgEnergy = energyHistory.reduce((sum, val) => sum + val, 0) / energyHistory.length;
+      if (energy / avgEnergy > 1.5 && currentStage >= 3 && !seismicMomentActive) {
+        triggerSeismicMoment();
+      }
+      requestAnimationFrame(analyzeAudio);
+    }
+    
+    // Simulated audio input if microphone is not available
+    function simulateAudioInput() {
+      setInterval(() => {
+        for (let i = 0; i < waveformData.length; i++) {
+          const sinComp = Math.sin(Date.now() * 0.001 + i * 0.2) * 0.3;
+          const noiseComp = (Math.random() * 0.2) - 0.1;
+          const newValue = sinComp + noiseComp;
+          waveformData[i] = prevWaveformData[i] * (1 - smoothingFactor) + newValue * smoothingFactor;
+          prevWaveformData[i] = waveformData[i];
+        }
+        const energy = waveformData.reduce((sum, val) => sum + Math.abs(val), 0) / waveformData.length;
+        energyHistory.push(energy);
+        energyHistory.shift();
+      }, 50);
+    }
+    
+    // Unfold Map phase
+    function unfoldMap() {
+      if (!isAwake) return;
+      currentStage = 3;
+      ritualStage.textContent = "THE MAP UNFOLDS";
+      guideText.textContent = "Your connection forms patterns... Watch the terrain shift with your exchange...";
+      document.addEventListener('touchstart', handleMapTouch);
+      document.addEventListener('mousedown', handleMapTouch);
+    }
+    
+    // Handle touch during the map phase
+    function handleMapTouch(e) {
+      const touchX = e.touches ? e.touches[0].clientX : e.clientX;
+      const touchY = e.touches ? e.touches[0].clientY : e.clientY;
+      addParticlesBurst(touchX, touchY, 10);
+      const notes = ["D4", "F4", "G4", "A4", "C5"];
+      const noteIndex = Math.floor((touchY / window.innerHeight) * notes.length);
+      const note = notes[noteIndex];
+      synth.triggerAttackRelease(note, "8n");
+      colorShift = (colorShift + 0.05) % 1;
+    }
+    
+    // Trigger a seismic moment event
+    function triggerSeismicMoment() {
+      if (seismicMomentActive || !isAwake) return;
+      seismicMomentActive = true;
+      currentStage = 4;
+      ritualStage.textContent = "SEISMIC MOMENT";
+      addParticlesBurst(waveCanvas.width / 2, waveCanvas.height / 2, 30);
+      droneSynth.frequency.rampTo("C2", 1);
+      const distortion = new Tone.Distortion(0.3).toDestination();
+      droneSynth.connect(distortion);
+      setTimeout(() => {
+        droneSynth.disconnect(distortion);
+        distortion.dispose();
+      }, 3000);
+      guideText.textContent = "A shift emerges... Pause, breathe together, listen deeply...";
+      document.addEventListener('touchstart', startBreathSequence);
+      document.addEventListener('mousedown', startBreathSequence);
+    }
+    
+    // Start shared breath sequence
+    function startBreathSequence() {
+      if (breathSequenceActive || !seismicMomentActive) return;
+      document.removeEventListener('touchstart', startBreathSequence);
+      document.removeEventListener('mousedown', startBreathSequence);
+      breathSequenceActive = true;
+      ritualStage.textContent = "RECALIBRATION";
+      guideText.textContent = "Breathe in...";
+      breathGuide.style.opacity = '0.2';
+      breathGuide.classList.add('inhale');
+      bassSynth.triggerAttack("G2");
+      setTimeout(() => {
+        if (!isAwake) return;
+        breathGuide.classList.remove('inhale');
+        breathGuide.classList.add('exhale');
+        guideText.textContent = "Breathe out...";
+        bassSynth.frequency.rampTo("D2", 4);
+        setTimeout(() => {
+          if (!isAwake) return;
+          completeRecalibration();
+        }, 4000);
+      }, 4000);
+    }
+    
+    // Complete recalibration phase
+    function completeRecalibration() {
+      breathSequenceActive = false;
+      seismicMomentActive = false;
+      bassSynth.triggerRelease();
+      breathGuide.classList.remove('exhale');
+      breathGuide.style.opacity = '0';
+      currentStage = 3;
+      ritualStage.textContent = "THE MAP CONTINUES";
+      guideText.textContent = "The connection renews... The seismograph continues to listen...";
+      playHarmonicShimmer();
+      colorShift = 0.3;
+      setTimeout(() => {
+        if (isAwake) {
+          droneSynth.frequency.rampTo("G2", 5);
+        }
+      }, 8000);
+    }
+    
+    // Play harmonic shimmer effect
+    function playHarmonicShimmer() {
+      const now = Tone.now();
+      synth.triggerAttackRelease("G4", "8n", now);
+      synth.triggerAttackRelease("B4", "8n", now + 0.1);
+      synth.triggerAttackRelease("D5", "8n", now + 0.2);
+      synth.triggerAttackRelease("G5", "8n", now + 0.4);
+    }
+    
+    // Animate the initial pulse before awakening
+    function animatePulse() {
+      if (isAwake) return;
+      pulseCircle.animate([
+        { opacity: 0.1, transform: 'scale(0.5)' },
+        { opacity: 0.3, transform: 'scale(0.7)' },
+        { opacity: 0.1, transform: 'scale(0.5)' }
+      ], {
+        duration: 3000,
+        iterations: Infinity
+      });
+      touchIndicator.style.opacity = '0.5';
+    }
+    
+    // Animate the wake-up sequence
+    function animateWakeUp() {
+      pulseCircle.animate([
+        { opacity: 0.1, transform: 'scale(0.5)' },
+        { opacity: 0.4, transform: 'scale(0.9)' },
+        { opacity: 0.1, transform: 'scale(0.5)' }
+      ], {
+        duration: 1500,
+        iterations: 1
+      });
+    }
+    
+    // Add a burst of particles
+    function addParticlesBurst(x, y, count) {
+      for (let i = 0; i < count; i++) {
+        if (particles.length >= MAX_PARTICLES) {
+          particles.shift();
+        }
+        const angle = Math.random() * Math.PI * 2;
+        const speed = 0.5 + Math.random() * 2;
+        particles.push({
+          x,
+          y,
+          vx: Math.cos(angle) * speed,
+          vy: Math.sin(angle) * speed,
+          radius: 1 + Math.random() * 3,
+          alpha: 1,
+          hue: (220 + colorShift * 60) % 360
+        });
+      }
+    }
+    
+    // Main animation loop
+    function animate() {
+      if (!isAwake) return;
+      waveCtx.clearRect(0, 0, waveCanvas.width, waveCanvas.height);
+      particleCtx.clearRect(0, 0, particleCanvas.width, particleCanvas.height);
+      drawWaveform();
+      updateParticles();
+      requestAnimationFrame(animate);
+    }
+    
+    // Draw the waveform based on microphone/simulated data
+    function drawWaveform() {
+      const centerX = waveCanvas.width / 2;
+      const centerY = waveCanvas.height / 2;
+      const radius = Math.min(waveCanvas.width, waveCanvas.height) * 0.4;
+      waveCtx.beginPath();
+      for (let i = 0; i < waveformData.length; i++) {
+        const angle = (i / waveformData.length) * Math.PI * 2;
+        const value = waveformData[i];
+        const dynamicRadius = radius * (1 + value * 0.3);
+        const x = centerX + Math.cos(angle) * dynamicRadius;
+        const y = centerY + Math.sin(angle) * dynamicRadius;
+        if (i === 0) {
+          waveCtx.moveTo(x, y);
+        } else {
+          waveCtx.lineTo(x, y);
+        }
+      }
+      waveCtx.closePath();
+      const baseHue = 220 + colorShift * 60;
+      const gradient = waveCtx.createRadialGradient(centerX, centerY, 0, centerX, centerY, radius);
+      gradient.addColorStop(0, `hsla(${baseHue}, 80%, 40%, 0.1)`);
+      gradient.addColorStop(0.5, `hsla(${baseHue}, 70%, 30%, 0.05)`);
+      gradient.addColorStop(1, `hsla(${baseHue}, 60%, 20%, 0.02)`);
+      waveCtx.fillStyle = gradient;
+      waveCtx.fill();
+      waveCtx.strokeStyle = `hsla(${baseHue}, 80%, 60%, 0.2)`;
+      waveCtx.lineWidth = 1;
+      waveCtx.stroke();
+    }
+    
+    // Update and draw particles
+    function updateParticles() {
+      for (let i = particles.length - 1; i >= 0; i--) {
+        const p = particles[i];
+        p.x += p.vx;
+        p.y += p.vy;
+        p.alpha -= 0.01;
+        if (p.alpha <= 0) {
+          particles.splice(i, 1);
+          continue;
+        }
+        particleCtx.beginPath();
+        particleCtx.arc(p.x, p.y, p.radius, 0, Math.PI * 2);
+        particleCtx.fillStyle = `hsla(${p.hue}, 80%, 60%, ${p.alpha})`;
+        particleCtx.fill();
+      }
+    }
+    
+    // Initialize the interface once the window loads
+    window.addEventListener('load', init);
+  </script>
+</body>
+</html>

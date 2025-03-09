@@ -1,0 +1,849 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Living Relationship Seismograph</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', sans-serif;
+            background-color: #080808;
+            color: #f0f0f0;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            height: 100vh;
+            touch-action: manipulation;
+        }
+
+        .container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .background {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle at 50% 100%, #101835 0%, #050510 100%);
+            opacity: 0;
+            transition: opacity 3s ease-in-out;
+            z-index: -2;
+        }
+
+        .horizon {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: 30%;
+            background: linear-gradient(to top, rgba(20, 60, 120, 0.2) 0%, transparent 100%);
+            z-index: -1;
+            transform: scaleY(0);
+            transform-origin: bottom;
+            transition: transform 2.5s ease-out;
+        }
+
+        .seismic-container {
+            width: 100%;
+            height: 60vh;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            overflow: hidden;
+        }
+
+        .seismograph {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            opacity: 0;
+            transition: opacity 2s ease-in-out;
+        }
+
+        .wave-container {
+            width: 100%;
+            height: 50%;
+            position: relative;
+            overflow: hidden;
+        }
+
+        canvas {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .center-line {
+            position: absolute;
+            top: 50%;
+            left: 0;
+            width: 100%;
+            height: 1px;
+            background-color: rgba(255, 255, 255, 0.2);
+            transform: scaleX(0);
+            transition: transform 1.5s ease-in-out;
+        }
+
+        .ritual-container {
+            margin-top: 20px;
+            width: 100%;
+            text-align: center;
+            opacity: 0;
+            transition: opacity 1.5s ease-in-out;
+        }
+
+        .phase-title {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            font-weight: 300;
+            letter-spacing: 1px;
+            opacity: 0.9;
+        }
+
+        .instruction {
+            font-size: 0.9rem;
+            margin-bottom: 20px;
+            font-weight: 300;
+            opacity: 0.7;
+            max-width: 80%;
+            margin-left: auto;
+            margin-right: auto;
+            line-height: 1.4;
+        }
+
+        .pulse-circle {
+            width: 70px;
+            height: 70px;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(100, 170, 255, 0.1) 0%, transparent 70%);
+            margin: 20px auto;
+            cursor: pointer;
+            position: relative;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .inner-circle {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: rgba(100, 170, 255, 0.05);
+            border: 1px solid rgba(100, 170, 255, 0.3);
+            transition: all 0.3s ease;
+        }
+
+        .pulse-animation {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: radial-gradient(circle, rgba(100, 170, 255, 0.2) 0%, transparent 70%);
+            opacity: 0;
+            transform: scale(0.8);
+        }
+
+        .breathing-guide {
+            width: 100%;
+            height: 2px;
+            background: linear-gradient(90deg, transparent 0%, rgba(100, 170, 255, 0.3) 50%, transparent 100%);
+            position: absolute;
+            top: 50%;
+            left: 0;
+            transform: scaleX(0.3);
+            opacity: 0;
+            transition: transform 4s ease-in-out, opacity 2s ease-in-out;
+        }
+
+        .seismic-moment {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+            backdrop-filter: blur(5px);
+            background-color: rgba(0, 0, 0, 0.5);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+            z-index: 10;
+        }
+
+        .moment-content {
+            text-align: center;
+            max-width: 80%;
+        }
+
+        .moment-title {
+            font-size: 1.4rem;
+            margin-bottom: 20px;
+            font-weight: 300;
+            letter-spacing: 1px;
+        }
+
+        .moment-choices {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+            margin-top: 30px;
+        }
+
+        .choice-btn {
+            background: rgba(100, 170, 255, 0.1);
+            border: 1px solid rgba(100, 170, 255, 0.3);
+            color: rgba(255, 255, 255, 0.8);
+            padding: 15px 20px;
+            border-radius: 25px;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .choice-btn:active {
+            background: rgba(100, 170, 255, 0.2);
+            transform: scale(0.98);
+        }
+
+        .memory-flash {
+            position: absolute;
+            width: 100%;
+            height: 100%;
+            top: 0;
+            left: 0;
+            background: radial-gradient(circle at center, rgba(255, 255, 255, 0.1) 0%, transparent 70%);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+        }
+
+        .recalibration-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-color: rgba(0, 0, 0, 0.7);
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity 0.5s ease;
+            z-index: 11;
+        }
+
+        .recalibration-content {
+            text-align: center;
+            max-width: 80%;
+        }
+
+        .start-screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            background-color: #080808;
+            z-index: 20;
+            transition: opacity 2s ease-in-out;
+        }
+
+        .title {
+            font-size: 1.8rem;
+            margin-bottom: 20px;
+            font-weight: 300;
+            letter-spacing: 2px;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        .subtitle {
+            font-size: 1rem;
+            margin-bottom: 40px;
+            font-weight: 300;
+            opacity: 0.7;
+            max-width: 80%;
+            text-align: center;
+            line-height: 1.4;
+        }
+
+        .start-btn {
+            background: rgba(100, 170, 255, 0.1);
+            border: 1px solid rgba(100, 170, 255, 0.3);
+            color: rgba(255, 255, 255, 0.8);
+            padding: 15px 30px;
+            border-radius: 25px;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            letter-spacing: 1px;
+        }
+
+        .start-btn:active {
+            background: rgba(100, 170, 255, 0.2);
+            transform: scale(0.98);
+        }
+        
+        .connection-status {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            font-size: 0.8rem;
+            opacity: 0.5;
+        }
+        
+        .phase-indicator {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            font-size: 0.8rem;
+            opacity: 0.5;
+        }
+        
+        .fault-line {
+            position: absolute;
+            width: 100%;
+            height: 1px;
+            background: linear-gradient(90deg, transparent 0%, rgba(255, 150, 150, 0.3) 50%, transparent 100%);
+            opacity: 0;
+            transform-origin: left;
+            transition: opacity 0.5s ease;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="background"></div>
+        <div class="horizon"></div>
+        
+        <div class="connection-status">Dormant</div>
+        <div class="phase-indicator">Phase: Awakening</div>
+        
+        <div class="seismic-container">
+            <div class="seismograph">
+                <div class="wave-container">
+                    <canvas id="waveCanvas"></canvas>
+                </div>
+                <div class="center-line"></div>
+                
+                <div class="fault-line" style="top: 30%;"></div>
+                <div class="fault-line" style="top: 60%;"></div>
+                <div class="fault-line" style="bottom: 25%;"></div>
+            </div>
+            
+            <div class="seismic-moment">
+                <div class="moment-content">
+                    <div class="moment-title">A Seismic Moment</div>
+                    <div class="instruction">A significant shift has been felt. How would you like to respond?</div>
+                    <div class="moment-choices">
+                        <button class="choice-btn">Pause & Breathe Together</button>
+                        <button class="choice-btn">Remember a Past Connection</button>
+                        <button class="choice-btn">Mark This Point on Our Map</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="memory-flash"></div>
+            
+            <div class="recalibration-container">
+                <div class="recalibration-content">
+                    <div class="moment-title">Recalibration</div>
+                    <div class="instruction">Breathe together as the field recalibrates...</div>
+                    <div class="breathing-guide"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="ritual-container">
+            <div class="phase-title">Wake the Seismograph</div>
+            <div class="instruction">Place your palm over the circle and breathe slowly. The seismograph awakens with your presence.</div>
+            <div class="pulse-circle">
+                <div class="inner-circle"></div>
+                <div class="pulse-animation"></div>
+            </div>
+        </div>
+        
+        <div class="start-screen">
+            <div class="title">The Living Relationship Seismograph</div>
+            <div class="subtitle">A ritual space for attunement, not measurement. An artifact that reveals the quiet tremors of relational being.</div>
+            <button class="start-btn">Begin the Ritual</button>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            // DOM elements
+            const startScreen = document.querySelector('.start-screen');
+            const startBtn = document.querySelector('.start-btn');
+            const background = document.querySelector('.background');
+            const horizon = document.querySelector('.horizon');
+            const seismograph = document.querySelector('.seismograph');
+            const centerLine = document.querySelector('.center-line');
+            const ritualContainer = document.querySelector('.ritual-container');
+            const pulseCircle = document.querySelector('.pulse-circle');
+            const innerCircle = document.querySelector('.inner-circle');
+            const pulseAnimation = document.querySelector('.pulse-animation');
+            const phaseTitle = document.querySelector('.phase-title');
+            const instruction = document.querySelector('.instruction');
+            const connectionStatus = document.querySelector('.connection-status');
+            const phaseIndicator = document.querySelector('.phase-indicator');
+            const seismicMoment = document.querySelector('.seismic-moment');
+            const choiceBtns = document.querySelectorAll('.choice-btn');
+            const recalibrationContainer = document.querySelector('.recalibration-container');
+            const breathingGuide = document.querySelector('.breathing-guide');
+            const memoryFlash = document.querySelector('.memory-flash');
+            const faultLines = document.querySelectorAll('.fault-line');
+            
+            // Canvas setup
+            const canvas = document.getElementById('waveCanvas');
+            const ctx = canvas.getContext('2d');
+            let canvasWidth, canvasHeight;
+            
+            // App state
+            let currentPhase = 0; // 0: start, 1: wake, 2: enter field, 3: map unfolds, 4: seismic moment
+            let isAwake = false;
+            let isBreathing = false;
+            let connectionStrength = 0;
+            let emotionalIntensity = 0;
+            let touchActive = false;
+            let lastTouch = { x: 0, y: 0 };
+            let wavesActive = false;
+            let wavePoints = [];
+            let waveAmplitude = 0;
+            let animationFrameId;
+            let timeSinceLastEvent = 0;
+            let needsRecalibration = false;
+            
+            // Initialize canvas size
+            function resizeCanvas() {
+                canvasWidth = canvas.clientWidth;
+                canvasHeight = canvas.clientHeight;
+                canvas.width = canvasWidth;
+                canvas.height = canvasHeight;
+                
+                // Reset wave points
+                initWavePoints();
+            }
+            
+            // Initialize wave points
+            function initWavePoints() {
+                wavePoints = [];
+                const segment = canvasWidth / 100;
+                for (let i = 0; i < 100; i++) {
+                    wavePoints.push({
+                        x: i * segment,
+                        y: canvasHeight / 2,
+                        originalY: canvasHeight / 2,
+                        velocity: 0,
+                        frequency: 0.01 + Math.random() * 0.02
+                    });
+                }
+            }
+            
+            // Draw waves
+            function drawWaves() {
+                ctx.clearRect(0, 0, canvasWidth, canvasHeight);
+                
+                // Base line color
+                ctx.strokeStyle = `rgba(100, 170, 255, ${0.2 + (emotionalIntensity * 0.3)})`;
+                ctx.lineWidth = 1.5;
+                
+                // Draw the wave
+                ctx.beginPath();
+                ctx.moveTo(0, wavePoints[0].y);
+                
+                for (let i = 1; i < wavePoints.length - 2; i++) {
+                    const xc = (wavePoints[i].x + wavePoints[i + 1].x) / 2;
+                    const yc = (wavePoints[i].y + wavePoints[i + 1].y) / 2;
+                    ctx.quadraticCurveTo(wavePoints[i].x, wavePoints[i].y, xc, yc);
+                }
+                
+                ctx.stroke();
+                
+                // Add subtle glow effect for higher emotional intensity
+                if (emotionalIntensity > 0.3) {
+                    ctx.shadowBlur = 10 * emotionalIntensity;
+                    ctx.shadowColor = `rgba(100, 170, 255, ${0.5 * emotionalIntensity})`;
+                    ctx.stroke();
+                    ctx.shadowBlur = 0;
+                }
+            }
+            
+            // Update wave animation
+            function updateWaves() {
+                if (!wavesActive) return;
+                
+                const centerY = canvasHeight / 2;
+                
+                for (let i = 0; i < wavePoints.length; i++) {
+                    const point = wavePoints[i];
+                    
+                    // Apply different wave behaviors based on phase and emotional state
+                    if (currentPhase >= 2) {
+                        // Normal gentle wave movement
+                        point.y = point.originalY + (Math.sin(Date.now() * 0.001 * point.frequency) * waveAmplitude);
+                        
+                        // Add touch influence if active
+                        if (touchActive) {
+                            const distance = Math.abs(point.x - lastTouch.x);
+                            if (distance < canvasWidth / 4) {
+                                const influence = (1 - distance / (canvasWidth / 4)) * (emotionalIntensity * 20);
+                                point.y += (lastTouch.y - centerY) * influence / (1 + distance / 50);
+                            }
+                        }
+                        
+                        // Add emotional intensity influence
+                        if (emotionalIntensity > 0.5) {
+                            const randomFactor = Math.sin(Date.now() * 0.002 * (i / 10) + i);
+                            point.y += randomFactor * (emotionalIntensity * 10);
+                        }
+                    }
+                }
+                
+                drawWaves();
+                animationFrameId = requestAnimationFrame(updateWaves);
+            }
+            
+            // Start the seismograph
+            function startSeismograph() {
+                wavesActive = true;
+                updateWaves();
+            }
+            
+            // Wake the seismograph (Phase 1)
+            function wakeSeismograph() {
+                if (isAwake) return;
+                
+                isAwake = true;
+                currentPhase = 1;
+                phaseIndicator.textContent = "Phase: Awakening";
+                connectionStatus.textContent = "Awakening";
+                
+                // Background and horizon animation
+                background.style.opacity = 1;
+                
+                setTimeout(() => {
+                    horizon.style.transform = "scaleY(1)";
+                    centerLine.style.transform = "scaleX(1)";
+                    
+                    setTimeout(() => {
+                        seismograph.style.opacity = 1;
+                        startSeismograph();
+                        
+                        // Subtle initial wave
+                        waveAmplitude = 2;
+                        
+                        setTimeout(() => {
+                            // Move to phase 2 if interaction continues
+                            ritualContainer.style.opacity = 1;
+                            updatePhaseUI(1);
+                        }, 1000);
+                    }, 1000);
+                }, 500);
+            }
+            
+            // Update UI for the current phase
+            function updatePhaseUI(phase) {
+                currentPhase = phase;
+                
+                switch(phase) {
+                    case 1: // Wake the Seismograph
+                        phaseTitle.textContent = "Wake the Seismograph";
+                        instruction.textContent = "Place your palm over the circle and breathe slowly. The seismograph awakens with your presence.";
+                        phaseIndicator.textContent = "Phase: Awakening";
+                        break;
+                    case 2: // Enter the Field
+                        phaseTitle.textContent = "Enter the Field";
+                        instruction.textContent = "Speak together. Your voices are not recorded but translated into waves and currents.";
+                        phaseIndicator.textContent = "Phase: Entering Field";
+                        connectionStatus.textContent = "Field Active";
+                        break;
+                    case 3: // The Map Unfolds
+                        phaseTitle.textContent = "The Map Unfolds";
+                        instruction.textContent = "Notice the patterns. The map moves and breathes with your connection.";
+                        phaseIndicator.textContent = "Phase: Mapping";
+                        connectionStatus.textContent = "Mapping Active";
+                        break;
+                    case 4: // Seismic Moment
+                        phaseTitle.textContent = "A Seismic Moment";
+                        instruction.textContent = "A significant shift has emerged. Take a moment to acknowledge it together.";
+                        phaseIndicator.textContent = "Phase: Seismic Moment";
+                        connectionStatus.textContent = "Shift Detected";
+                        break;
+                    case 5: // Recalibration
+                        phaseTitle.textContent = "Recalibration";
+                        instruction.textContent = "Breathe together as the field recalibrates. What has been marked remains.";
+                        phaseIndicator.textContent = "Phase: Recalibrating";
+                        connectionStatus.textContent = "Recalibrating";
+                        break;
+                }
+            }
+            
+            // Start breathing animation
+            function startBreathing() {
+                if (isBreathing) return;
+                
+                isBreathing = true;
+                
+                // Animate the inner circle to simulate breathing
+                animateBreathing();
+                
+                // After some breathing, move to next phase
+                setTimeout(() => {
+                    if (currentPhase === 1) {
+                        updatePhaseUI(2);
+                        waveAmplitude = 5; // Increase wave amplitude
+                        
+                        // Occasionally show fault lines
+                        setTimeout(showRandomFaultLine, 10000);
+                        
+                        // Progress the phases over time
+                        setTimeout(() => {
+                            if (currentPhase === 2) {
+                                updatePhaseUI(3);
+                                waveAmplitude = 10;
+                                
+                                // Trigger a seismic moment after some time
+                                setTimeout(() => {
+                                    if (Math.random() > 0.3 && currentPhase === 3) {
+                                        triggerSeismicMoment();
+                                    }
+                                }, 20000);
+                            }
+                        }, 15000);
+                    }
+                }, 5000);
+            }
+            
+            // Animate breathing effect
+            function animateBreathing() {
+                if (!isBreathing) return;
+                
+                const breatheCycle = (t) => {
+                    // Inhale (expand)
+                    innerCircle.style.transform = "scale(1.2)";
+                    innerCircle.style.opacity = "0.7";
+                    
+                    setTimeout(() => {
+                        // Hold
+                        setTimeout(() => {
+                            // Exhale (contract)
+                            innerCircle.style.transform = "scale(1)";
+                            innerCircle.style.opacity = "0.5";
+                            
+                            setTimeout(() => {
+                                if (isBreathing) {
+                                    breatheCycle(t + 1);
+                                }
+                            }, 2000); // Pause before next breath
+                        }, 1000); // Hold duration
+                    }, 4000); // Inhale duration
+                };
+                
+                breatheCycle(0);
+            }
+            
+            // Show a random fault line
+            function showRandomFaultLine() {
+                if (currentPhase < 2) return;
+                
+                const randomLine = faultLines[Math.floor(Math.random() * faultLines.length)];
+                randomLine.style.opacity = 0.3;
+                
+                setTimeout(() => {
+                    randomLine.style.opacity = 0;
+                }, 10000);
+                
+                // Schedule next fault line
+                if (currentPhase < 4) {
+                    setTimeout(showRandomFaultLine, 15000 + Math.random() * 10000);
+                }
+            }
+            
+            // Trigger a pulse animation
+            function triggerPulse() {
+                pulseAnimation.style.opacity = 1;
+                pulseAnimation.style.transform = "scale(1.5)";
+                
+                setTimeout(() => {
+                    pulseAnimation.style.opacity = 0;
+                    pulseAnimation.style.transform = "scale(0.8)";
+                }, 1000);
+            }
+            
+            // Trigger a seismic moment
+            function triggerSeismicMoment() {
+                if (currentPhase === 4) return; // Already in a seismic moment
+                
+                updatePhaseUI(4);
+                seismicMoment.style.opacity = 1;
+                seismicMoment.style.pointerEvents = "auto";
+                
+                // Intensify the waves
+                emotionalIntensity = 0.8;
+            }
+            
+            // Start recalibration process
+            function startRecalibration(option) {
+                updatePhaseUI(5);
+                seismicMoment.style.opacity = 0;
+                seismicMoment.style.pointerEvents = "none";
+                
+                recalibrationContainer.style.opacity = 1;
+                recalibrationContainer.style.pointerEvents = "auto";
+                
+                // Show breathing guide
+                breathingGuide.style.opacity = 1;
+                breathingGuide.style.transform = "scaleX(1)";
+                
+                setTimeout(() => {
+                    breathingGuide.style.transform = "scaleX(0.3)";
+                    
+                    setTimeout(() => {
+                        breathingGuide.style.transform = "scaleX(1)";
+                        
+                        // If memory option was chosen, flash memory
+                        if (option === 1) {
+                            setTimeout(triggerMemoryFlash, 2000);
+                        }
+                        
+                        setTimeout(() => {
+                            recalibrationContainer.style.opacity = 0;
+                            recalibrationContainer.style.pointerEvents = "none";
+                            breathingGuide.style.opacity = 0;
+                            
+                            // Return to mapping phase
+                            setTimeout(() => {
+                                updatePhaseUI(3);
+                                emotionalIntensity = 0.3;
+                            }, 1000);
+                        }, 4000);
+                    }, 4000);
+                }, 4000);
+            }
+            
+            // Trigger memory flash effect
+            function triggerMemoryFlash() {
+                memoryFlash.style.opacity = 0.7;
+                
+                setTimeout(() => {
+                    memoryFlash.style.opacity = 0;
+                }, 1500);
+            }
+            
+            // Touch start/end handlers
+            function handleTouchStart(e) {
+                if (currentPhase >= 1) {
+                    touchActive = true;
+                    
+                    // Get touch coordinates relative to canvas
+                    const rect = canvas.getBoundingClientRect();
+                    if (e.touches) {
+                        lastTouch.x = e.touches[0].clientX - rect.left;
+                        lastTouch.y = e.touches[0].clientY - rect.top;
+                    } else {
+                        lastTouch.x = e.clientX - rect.left;
+                        lastTouch.y = e.clientY - rect.top;
+                    }
+                    
+                    // Increase emotional intensity with touch
+                    emotionalIntensity = Math.min(emotionalIntensity + 0.1, 1);
+                }
+            }
+            
+            function handleTouchEnd() {
+                touchActive = false;
+                
+                // Gradually decrease emotional intensity
+                const intensityInterval = setInterval(() => {
+                    emotionalIntensity = Math.max(emotionalIntensity - 0.05, 0.1);
+                    if (emotionalIntensity <= 0.1) {
+                        clearInterval(intensityInterval);
+                    }
+                }, 500);
+            }
+            
+            function handleTouchMove(e) {
+                if (touchActive) {
+                    const rect = canvas.getBoundingClientRect();
+                    if (e.touches) {
+                        lastTouch.x = e.touches[0].clientX - rect.left;
+                        lastTouch.y = e.touches[0].clientY - rect.top;
+                    } else {
+                        lastTouch.x = e.clientX - rect.left;
+                        lastTouch.y = e.clientY - rect.top;
+                    }
+                    
+                    // Prevent scrolling while interacting with canvas
+                    e.preventDefault();
+                }
+            }
+            
+            // Event listeners
+            startBtn.addEventListener('click', function() {
+                startScreen.style.opacity = 0;
+                setTimeout(() => {
+                    startScreen.style.display = 'none';
+                    wakeSeismograph();
+                }, 2000);
+            });
+            
+            pulseCircle.addEventListener('touchstart', function() {
+                triggerPulse();
+                startBreathing();
+            });
+            
+            pulseCircle.addEventListener('mousedown', function() {
+                triggerPulse();
+                startBreathing();
+            });
+            
+            choiceBtns.forEach((btn, index) => {
+                btn.addEventListener('click', function() {
+                    startRecalibration(index);
+                });
+            });
+            
+            // Touch/mouse events for canvas
+            canvas.addEventListener('touchstart', handleTouchStart, { passive: false });
+            canvas.addEventListener('touchend', handleTouchEnd);
+            canvas.addEventListener('touchmove', handleTouchMove, { passive: false });
+            canvas.addEventListener('mousedown', handleTouchStart);
+            canvas.addEventListener('mouseup', handleTouchEnd);
+            canvas.addEventListener('mousemove', handleTouchMove);
+            
+            // Initialize
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+            initWavePoints();
+        });
+    </script>
+</body>
+</html>

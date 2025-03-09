@@ -1,0 +1,817 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+  <title>Relationship Seismograph Dashboard</title>
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg-color: #121824;
+      --panel-color: #1a2236;
+      --green: #36e05c;
+      --yellow: #ffcc00;
+      --red: #ff3c5a;
+      --blue: #3c8aff;
+      --purple: #9c42f5;
+      --text-color: #e0e6f0;
+      --glow: 0 0 10px rgba(60, 138, 255, 0.5);
+    }
+    
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: 'Roboto Mono', monospace;
+      -webkit-tap-highlight-color: transparent;
+    }
+    
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-color);
+      overflow-x: hidden;
+      min-height: 100vh;
+      padding: 1rem;
+    }
+    
+    .dashboard-container {
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      max-width: 100%;
+    }
+    
+    .header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    }
+    
+    .header h1 {
+      font-size: 1.2rem;
+      font-weight: 500;
+    }
+    
+    .header .status {
+      font-size: 0.8rem;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .status-indicator {
+      height: 10px;
+      width: 10px;
+      border-radius: 50%;
+      background-color: var(--green);
+      box-shadow: 0 0 5px var(--green);
+      animation: pulse 2s infinite;
+    }
+    
+    .panel {
+      background-color: var(--panel-color);
+      border-radius: 12px;
+      padding: 1rem;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+      position: relative;
+      overflow: hidden;
+    }
+    
+    .panel::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 3px;
+      background: linear-gradient(90deg, var(--blue), var(--purple));
+    }
+    
+    .panel-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    
+    .panel-title {
+      font-size: 0.9rem;
+      font-weight: 500;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    
+    .panel-title i {
+      font-size: 1rem;
+      color: var(--blue);
+    }
+    
+    .panel-controls {
+      display: flex;
+      gap: 0.5rem;
+    }
+    
+    .panel-button {
+      background: rgba(60, 138, 255, 0.1);
+      border: none;
+      color: var(--blue);
+      border-radius: 4px;
+      padding: 0.25rem 0.5rem;
+      font-size: 0.7rem;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    
+    .panel-button:hover {
+      background: rgba(60, 138, 255, 0.2);
+    }
+    
+    /* Seismograph Graph */
+    .seismograph-container {
+      position: relative;
+      height: 180px;
+      margin-bottom: 0.5rem;
+      overflow: hidden;
+    }
+    
+    .seismograph-grid {
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      display: grid;
+      grid-template-rows: repeat(3, 1fr);
+    }
+    
+    .grid-line {
+      border-bottom: 1px dashed rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      padding-right: 0.5rem;
+    }
+    
+    .grid-label {
+      font-size: 0.6rem;
+      color: rgba(255, 255, 255, 0.5);
+    }
+    
+    .zone-indicator {
+      position: absolute;
+      width: 100%;
+      height: 33.33%;
+      left: 0;
+    }
+    
+    .red-zone {
+      top: 0;
+      background: linear-gradient(0deg, transparent, rgba(255, 60, 90, 0.05));
+    }
+    
+    .yellow-zone {
+      top: 33.33%;
+      background: linear-gradient(0deg, transparent, rgba(255, 204, 0, 0.05));
+    }
+    
+    .green-zone {
+      top: 66.66%;
+      background: linear-gradient(0deg, transparent, rgba(54, 224, 92, 0.05));
+    }
+    
+    .seismograph-canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+    
+    .zone-labels {
+      position: absolute;
+      left: 0;
+      width: 40px;
+      height: 100%;
+      display: flex;
+      flex-direction: column;
+    }
+    
+    .zone-label {
+      height: 33.33%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.6rem;
+      color: rgba(255, 255, 255, 0.5);
+    }
+    
+    .red-label {
+      color: var(--red);
+    }
+    
+    .yellow-label {
+      color: var(--yellow);
+    }
+    
+    .green-label {
+      color: var(--green);
+    }
+    
+    /* Calibration Controls */
+    .calibration-controls {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 1rem;
+      margin-top: 1rem;
+    }
+    
+    .control-group {
+      display: flex;
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    
+    .slider-container {
+      position: relative;
+      padding: 0.5rem 0;
+    }
+    
+    .slider-label {
+      display: flex;
+      justify-content: space-between;
+      font-size: 0.7rem;
+    }
+    
+    .custom-slider {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 6px;
+      background: rgba(255, 255, 255, 0.1);
+      border-radius: 3px;
+      outline: none;
+    }
+    
+    .custom-slider::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--blue);
+      cursor: pointer;
+      box-shadow: var(--glow);
+    }
+    
+    .auto-stabilize {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin-top: 0.5rem;
+    }
+    
+    .toggle-switch {
+      position: relative;
+      width: 46px;
+      height: 24px;
+    }
+    
+    .toggle-input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    
+    .toggle-slider {
+      position: absolute;
+      cursor: pointer;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background-color: rgba(255, 255, 255, 0.1);
+      border-radius: 24px;
+      transition: .4s;
+    }
+    
+    .toggle-slider:before {
+      position: absolute;
+      content: "";
+      height: 18px;
+      width: 18px;
+      left: 3px;
+      bottom: 3px;
+      background-color: white;
+      border-radius: 50%;
+      transition: .4s;
+    }
+    
+    .toggle-input:checked + .toggle-slider {
+      background-color: var(--blue);
+    }
+    
+    .toggle-input:checked + .toggle-slider:before {
+      transform: translateX(22px);
+    }
+    
+    /* Incident Reports */
+    .hotspot-map {
+      width: 100%;
+      height: 120px;
+      background-color: rgba(0, 0, 0, 0.2);
+      border-radius: 8px;
+      position: relative;
+      margin-bottom: 1rem;
+      overflow: hidden;
+    }
+    
+    .hotspot {
+      position: absolute;
+      width: 30px;
+      height: 30px;
+      border-radius: 50%;
+      transform: translate(-50%, -50%);
+    }
+    
+    .hotspot-1 {
+      top: 30%;
+      left: 20%;
+      background: radial-gradient(circle, rgba(255, 60, 90, 0.7) 0%, rgba(255, 60, 90, 0) 70%);
+    }
+    
+    .hotspot-2 {
+      top: 60%;
+      left: 60%;
+      background: radial-gradient(circle, rgba(255, 204, 0, 0.7) 0%, rgba(255, 204, 0, 0) 70%);
+    }
+    
+    .hotspot-3 {
+      top: 40%;
+      left: 80%;
+      background: radial-gradient(circle, rgba(255, 60, 90, 0.5) 0%, rgba(255, 60, 90, 0) 70%);
+    }
+    
+    .friction-logs {
+      max-height: 100px;
+      overflow-y: auto;
+      margin-top: 0.5rem;
+    }
+    
+    .log-item {
+      padding: 0.5rem;
+      border-radius: 4px;
+      margin-bottom: 0.5rem;
+      background-color: rgba(0, 0, 0, 0.2);
+      font-size: 0.7rem;
+      display: flex;
+      justify-content: space-between;
+    }
+    
+    .log-severity {
+      font-weight: bold;
+    }
+    
+    .severity-high {
+      color: var(--red);
+    }
+    
+    .severity-medium {
+      color: var(--yellow);
+    }
+    
+    .severity-low {
+      color: var(--green);
+    }
+    
+    /* Engagement Trends */
+    .trend-graph {
+      width: 100%;
+      height: 100px;
+      margin: 1rem 0;
+      position: relative;
+    }
+    
+    .trend-canvas {
+      width: 100%;
+      height: 100%;
+    }
+    
+    /* Heatmap */
+    .heatmap-container {
+      position: relative;
+      height: 200px;
+      background: var(--panel-color);
+      border-radius: 8px;
+      margin-top: 1rem;
+    }
+    
+    .heatmap-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: radial-gradient(circle at var(--x) var(--y),
+                rgba(255, 60, 90, 0.2) 0%,
+                transparent 50%);
+      pointer-events: none;
+    }
+    
+    /* Alert Items */
+    .alert-item {
+      padding: 0.5rem;
+      border-radius: 4px;
+      margin-bottom: 0.5rem;
+      background-color: rgba(255, 60, 90, 0.1);
+      border-left: 3px solid var(--red);
+      font-size: 0.7rem;
+    }
+    
+    .fix-suggestion {
+      padding: 0.5rem;
+      border-radius: 4px;
+      margin-bottom: 0.5rem;
+      background-color: rgba(60, 138, 255, 0.1);
+      border-left: 3px solid var(--blue);
+      font-size: 0.7rem;
+    }
+    
+    @keyframes pulse {
+      0% {
+        opacity: 1;
+        transform: scale(1);
+      }
+      50% {
+        opacity: 0.7;
+        transform: scale(1.1);
+      }
+      100% {
+        opacity: 1;
+        transform: scale(1);
+      }
+    }
+    
+    @media (min-width: 768px) {
+      .dashboard-container {
+        max-width: 480px;
+        margin: 0 auto;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="dashboard-container">
+    <div class="header">
+      <h1>Relationship Seismograph</h1>
+      <div class="status">
+        <div class="status-indicator"></div>
+        <span>Live Monitoring</span>
+      </div>
+    </div>
+    
+    <!-- Live Seismograph Feed -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <i class="fas fa-chart-line"></i>
+          Live Engagement Feed
+        </div>
+        <div class="panel-controls">
+          <button class="panel-button">Reset</button>
+          <button class="panel-button">Pause</button>
+        </div>
+      </div>
+      
+      <div class="seismograph-container">
+        <div class="zone-labels">
+          <div class="zone-label red-label">🔴</div>
+          <div class="zone-label yellow-label">🟡</div>
+          <div class="zone-label green-label">🟢</div>
+        </div>
+        
+        <div class="seismograph-grid">
+          <div class="grid-line"><div class="grid-label">Critical</div></div>
+          <div class="grid-line"><div class="grid-label">Warning</div></div>
+          <div class="grid-line"><div class="grid-label">Stable</div></div>
+        </div>
+        
+        <div class="zone-indicator red-zone"></div>
+        <div class="zone-indicator yellow-zone"></div>
+        <div class="zone-indicator green-zone"></div>
+        
+        <canvas id="seismographCanvas" class="seismograph-canvas"></canvas>
+      </div>
+      
+      <div class="activity-stats">
+        <div class="stat-group" style="display: flex; justify-content: space-between; font-size: 0.8rem; margin-top: 0.5rem;">
+          <div>
+            <div style="color: rgba(255,255,255,0.6)">Rage Clicks</div>
+            <div style="font-weight: bold; color: var(--red)">14</div>
+          </div>
+          <div>
+            <div style="color: rgba(255,255,255,0.6)">Avg Engagement</div>
+            <div style="font-weight: bold; color: var(--yellow)">68%</div>
+          </div>
+          <div>
+            <div style="color: rgba(255,255,255,0.6)">Session Time</div>
+            <div style="font-weight: bold; color: var(--green)">4:32</div>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Calibration Controls -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <i class="fas fa-sliders"></i>
+          Calibration Controls
+        </div>
+      </div>
+      
+      <div class="calibration-controls">
+        <div class="slider-container">
+          <div class="slider-label">
+            <span>UI Complexity</span>
+            <span id="complexityValue">Medium</span>
+          </div>
+          <input type="range" min="1" max="10" value="5" class="custom-slider" id="complexitySlider">
+        </div>
+        
+        <div class="slider-container">
+          <div class="slider-label">
+            <span>Onboarding Pace</span>
+            <span id="paceValue">Normal</span>
+          </div>
+          <input type="range" min="1" max="10" value="6" class="custom-slider" id="paceSlider">
+        </div>
+        
+        <div class="slider-container">
+          <div class="slider-label">
+            <span>Sensitivity</span>
+            <span id="sensitivityValue">High</span>
+          </div>
+          <input type="range" min="1" max="10" value="8" class="custom-slider" id="sensitivitySlider">
+        </div>
+        
+        <div class="auto-stabilize">
+          <span style="font-size: 0.8rem;">Auto-Stabilization</span>
+          <label class="toggle-switch">
+            <input type="checkbox" class="toggle-input" checked>
+            <span class="toggle-slider"></span>
+          </label>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Incident Reports -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <i class="fas fa-triangle-exclamation"></i>
+          Incident Reports
+        </div>
+        <div class="panel-controls">
+          <button class="panel-button">Filter</button>
+        </div>
+      </div>
+      
+      <div>
+        <div style="font-size: 0.7rem; margin-bottom: 0.5rem;">Hotspot Mapping</div>
+        <div class="hotspot-map">
+          <div class="hotspot hotspot-1"></div>
+          <div class="hotspot hotspot-2"></div>
+          <div class="hotspot hotspot-3"></div>
+          <svg width="100%" height="100%" style="position: absolute; top: 0; left: 0; opacity: 0.3;">
+            <rect x="10%" y="10%" width="80%" height="20%" rx="4" stroke="white" stroke-width="1" fill="none"/>
+            <rect x="10%" y="40%" width="35%" height="10%" rx="4" stroke="white" stroke-width="1" fill="none"/>
+            <rect x="55%" y="40%" width="35%" height="10%" rx="4" stroke="white" stroke-width="1" fill="none"/>
+            <rect x="10%" y="60%" width="80%" height="30%" rx="4" stroke="white" stroke-width="1" fill="none"/>
+          </svg>
+        </div>
+        
+        <div style="font-size: 0.7rem; margin-bottom: 0.5rem;">Friction Logs</div>
+        <div class="friction-logs">
+          <div class="log-item">
+            <span>User #2586 abandoned checkout</span>
+            <span class="log-severity severity-high">High</span>
+          </div>
+          <div class="log-item">
+            <span>4 users struggled with navigation</span>
+            <span class="log-severity severity-medium">Medium</span>
+          </div>
+          <div class="log-item">
+            <span>Page load delay (2.4s) detected</span>
+            <span class="log-severity severity-low">Low</span>
+          </div>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Engagement Trends -->
+    <div class="panel">
+      <div class="panel-header">
+        <div class="panel-title">
+          <i class="fas fa-chart-line"></i>
+          Engagement Forecasting
+        </div>
+      </div>
+      
+      <div>
+        <canvas id="trendCanvas" class="trend-canvas"></canvas>
+        
+        <div style="font-size: 0.7rem; margin: 1rem 0 0.5rem;">Alerts & Suggestions</div>
+        
+        <div class="alert-item">
+          <strong>Alert:</strong> Predicted 23% drop in checkout completions in next 48 hours
+        </div>
+        
+        <div class="fix-suggestion">
+          <strong>Suggestion:</strong> Simplify form fields and add progress indicator to increase completion rate
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ----- Seismograph Animation -----
+    const seismographCanvas = document.getElementById('seismographCanvas');
+    const seismographCtx = seismographCanvas.getContext('2d');
+
+    // ----- Trend Chart -----
+    const trendCanvas = document.getElementById('trendCanvas');
+    const trendCtx = trendCanvas.getContext('2d');
+
+    function resizeCanvas() {
+      seismographCanvas.width = seismographCanvas.offsetWidth;
+      seismographCanvas.height = seismographCanvas.offsetHeight;
+      trendCanvas.width = trendCanvas.offsetWidth;
+      trendCanvas.height = trendCanvas.offsetHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    let points = [];
+    const maxPoints = 100;
+    let lastY = seismographCanvas.height / 2;
+    function generateRandomPoint() {
+      const volatility = Math.random() * 0.5 + 0.5;
+      const direction = Math.random() > 0.5 ? 1 : -1;
+      const change = Math.random() * 10 * volatility * direction;
+      const spikeChance = Math.random();
+      let newY;
+      if (spikeChance > 0.97) {
+        newY = seismographCanvas.height * 0.2;
+      } else if (spikeChance > 0.9) {
+        newY = seismographCanvas.height * 0.4;
+      } else {
+        newY = lastY + change;
+        newY = Math.max(Math.min(newY, seismographCanvas.height * 0.9), seismographCanvas.height * 0.1);
+      }
+      lastY = newY;
+      return newY;
+    }
+
+    function drawSeismograph() {
+      seismographCtx.clearRect(0, 0, seismographCanvas.width, seismographCanvas.height);
+      points.forEach(point => { point.x -= 2; });
+      points.push({ x: seismographCanvas.width, y: generateRandomPoint() });
+      points = points.filter(point => point.x > 0);
+      if (points.length > maxPoints) { points.shift(); }
+      seismographCtx.beginPath();
+      seismographCtx.moveTo(0, seismographCanvas.height / 2);
+      points.forEach((point, index) => {
+        index === 0 ? seismographCtx.moveTo(point.x, point.y) : seismographCtx.lineTo(point.x, point.y);
+      });
+      const gradient = seismographCtx.createLinearGradient(0, 0, 0, seismographCanvas.height);
+      gradient.addColorStop(0, 'rgba(255, 60, 90, 0.8)');
+      gradient.addColorStop(0.33, 'rgba(255, 204, 0, 0.8)');
+      gradient.addColorStop(0.66, 'rgba(54, 224, 92, 0.8)');
+      seismographCtx.strokeStyle = gradient;
+      seismographCtx.lineWidth = 2;
+      seismographCtx.stroke();
+      seismographCtx.shadowColor = 'rgba(60, 138, 255, 0.5)';
+      seismographCtx.shadowBlur = 5;
+      points.forEach(point => {
+        let color;
+        if (point.y < seismographCanvas.height / 3) { color = 'rgba(255, 60, 90, 0.8)'; }
+        else if (point.y < (seismographCanvas.height / 3) * 2) { color = 'rgba(255, 204, 0, 0.8)'; }
+        else { color = 'rgba(54, 224, 92, 0.8)'; }
+        seismographCtx.beginPath();
+        seismographCtx.arc(point.x, point.y, 2, 0, Math.PI * 2);
+        seismographCtx.fillStyle = color;
+        seismographCtx.fill();
+      });
+      requestAnimationFrame(drawSeismograph);
+    }
+    drawSeismograph();
+
+    // ----- Trend Chart Drawing -----
+    function drawTrendChart() {
+      const data = [75, 72, 80, 76, 78, 74, 70, 68, 65, 62, 60, 58];
+      const prediction = [58, 55, 50, 46, 43, 40];
+      trendCtx.clearRect(0, 0, trendCanvas.width, trendCanvas.height);
+      const pointWidth = trendCanvas.width / (data.length + prediction.length);
+      const heightScale = trendCanvas.height / 100;
+      trendCtx.beginPath();
+      trendCtx.moveTo(0, trendCanvas.height - data[0] * heightScale);
+      data.forEach((value, index) => {
+        const x = index * pointWidth;
+        const y = trendCanvas.height - value * heightScale;
+        trendCtx.lineTo(x, y);
+      });
+      trendCtx.strokeStyle = '#3c8aff';
+      trendCtx.lineWidth = 2;
+      trendCtx.stroke();
+      const lastDataPoint = data.length - 1;
+      trendCtx.lineTo(lastDataPoint * pointWidth, trendCanvas.height);
+      trendCtx.lineTo(0, trendCanvas.height);
+      trendCtx.closePath();
+      const pastGradient = trendCtx.createLinearGradient(0, 0, 0, trendCanvas.height);
+      pastGradient.addColorStop(0, 'rgba(60, 138, 255, 0.2)');
+      pastGradient.addColorStop(1, 'rgba(60, 138, 255, 0)');
+      trendCtx.fillStyle = pastGradient;
+      trendCtx.fill();
+      trendCtx.beginPath();
+      trendCtx.moveTo(lastDataPoint * pointWidth, trendCanvas.height - data[lastDataPoint] * heightScale);
+      prediction.forEach((value, index) => {
+        const x = (lastDataPoint + 1 + index) * pointWidth;
+        const y = trendCanvas.height - value * heightScale;
+        trendCtx.lineTo(x, y);
+      });
+      trendCtx.setLineDash([5, 3]);
+      trendCtx.strokeStyle = '#ff3c5a';
+      trendCtx.stroke();
+      trendCtx.setLineDash([]);
+      const lastPredictionPoint = lastDataPoint + prediction.length;
+      trendCtx.lineTo(lastPredictionPoint * pointWidth, trendCanvas.height);
+      trendCtx.lineTo(lastDataPoint * pointWidth, trendCanvas.height);
+      trendCtx.closePath();
+      const futureGradient = trendCtx.createLinearGradient(0, 0, 0, trendCanvas.height);
+      futureGradient.addColorStop(0, 'rgba(255, 60, 90, 0.2)');
+      futureGradient.addColorStop(1, 'rgba(255, 60, 90, 0)');
+      trendCtx.fillStyle = futureGradient;
+      trendCtx.fill();
+      trendCtx.beginPath();
+      trendCtx.moveTo(lastDataPoint * pointWidth, 0);
+      trendCtx.lineTo(lastDataPoint * pointWidth, trendCanvas.height);
+      trendCtx.setLineDash([2, 2]);
+      trendCtx.strokeStyle = 'rgba(255, 255, 255, 0.3)';
+      trendCtx.stroke();
+      trendCtx.setLineDash([]);
+      trendCtx.font = '8px Roboto Mono';
+      trendCtx.fillStyle = 'rgba(255, 255, 255, 0.5)';
+      trendCtx.fillText('Now', lastDataPoint * pointWidth - 20, trendCanvas.height - 5);
+      trendCtx.fillText('Predicted', lastDataPoint * pointWidth + 10, trendCanvas.height - 5);
+    }
+    drawTrendChart();
+
+    // ----- Slider Interactions -----
+    const complexitySlider = document.getElementById('complexitySlider');
+    const complexityValue = document.getElementById('complexityValue');
+    const paceSlider = document.getElementById('paceSlider');
+    const paceValue = document.getElementById('paceValue');
+    const sensitivitySlider = document.getElementById('sensitivitySlider');
+    const sensitivityValue = document.getElementById('sensitivityValue');
+
+    function updateSliderLabels() {
+      const compVal = complexitySlider.value;
+      const paceVal = paceSlider.value;
+      const sensVal = sensitivitySlider.value;
+      
+      // For demonstration, map values to text
+      complexityValue.textContent = compVal <= 3 ? 'Low' : compVal <= 7 ? 'Medium' : 'High';
+      paceValue.textContent = paceVal <= 3 ? 'Slow' : paceVal <= 7 ? 'Normal' : 'Fast';
+      sensitivityValue.textContent = sensVal <= 3 ? 'Low' : sensVal <= 7 ? 'Medium' : 'High';
+    }
+
+    complexitySlider.addEventListener('input', updateSliderLabels);
+    paceSlider.addEventListener('input', updateSliderLabels);
+    sensitivitySlider.addEventListener('input', updateSliderLabels);
+    updateSliderLabels();
+
+    // ----- Heatmap Initialization -----
+    function initializeHeatmap() {
+      const heatmap = document.querySelector('.heatmap-container');
+      const overlay = document.createElement('div');
+      overlay.classList.add('heatmap-overlay');
+      heatmap.appendChild(overlay);
+      
+      heatmap.addEventListener('mousemove', (e) => {
+        const rect = heatmap.getBoundingClientRect();
+        const x = ((e.clientX - rect.left) / rect.width) * 100;
+        const y = ((e.clientY - rect.top) / rect.height) * 100;
+        overlay.style.setProperty('--x', `${x}%`);
+        overlay.style.setProperty('--y', `${y}%`);
+      });
+    }
+    // Uncomment below if you want a heatmap section on your dashboard
+    // initializeHeatmap();
+
+    // ----- Final Setup -----
+    // (Any additional dependencies are enabled via CDN above)
+  </script>
+</body>
+</html>

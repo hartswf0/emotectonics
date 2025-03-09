@@ -1,0 +1,802 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Relationship Seismograph 2.0</title>
+    <style>
+        /* Global Styles */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Quicksand', sans-serif;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #b5e8ff 0%, #e3f2fd 100%);
+            color: #444;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header Styles */
+        .header {
+            background-color: #ff85a2;
+            color: white;
+            padding: 15px;
+            text-align: center;
+            border-radius: 0 0 15px 15px;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+        }
+
+        .app-title {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+        }
+
+        .subtitle {
+            font-size: 0.9rem;
+            opacity: 0.9;
+        }
+
+        /* Container Styles */
+        .container {
+            flex: 1;
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+
+        /* Garden View */
+        .garden-view {
+            background-color: rgba(255, 255, 255, 0.8);
+            border-radius: 15px;
+            padding: 15px;
+            margin-bottom: 20px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+            position: relative;
+            height: 230px;
+            overflow: hidden;
+        }
+
+        .garden-svg {
+            width: 100%;
+            height: 200px;
+            position: relative;
+        }
+
+        /* Check-in Section */
+        .check-in-section {
+            background-color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+
+        .section-title {
+            font-size: 1.2rem;
+            margin-bottom: 15px;
+            color: #ff6b93;
+            font-weight: bold;
+        }
+
+        .mood-picker {
+            display: flex;
+            justify-content: space-around;
+            margin-bottom: 15px;
+        }
+
+        .mood-option {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            cursor: pointer;
+            transition: transform 0.2s;
+            padding: 10px;
+            border-radius: 10px;
+        }
+
+        .mood-option:hover, .mood-option.selected {
+            background-color: #f0f8ff;
+            transform: scale(1.1);
+        }
+
+        .mood-emoji {
+            font-size: 2rem;
+            margin-bottom: 5px;
+        }
+
+        .mood-label {
+            font-size: 0.8rem;
+            color: #666;
+        }
+
+        .partner-mood {
+            text-align: center;
+            margin: 15px 0;
+            padding: 10px;
+            background-color: #f9f9f9;
+            border-radius: 10px;
+        }
+
+        /* Mini-Games Section */
+        .mini-games-section {
+            background-color: white;
+            border-radius: 15px;
+            padding: 20px;
+            margin-bottom: 20px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+
+        .games-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+        }
+
+        .game-card {
+            background: linear-gradient(135deg, #e0f7ff 0%, #d4e6ff 100%);
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        .game-card:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+        }
+
+        .game-icon {
+            font-size: 1.8rem;
+            margin-bottom: 10px;
+        }
+
+        .game-title {
+            font-size: 0.9rem;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .game-description {
+            font-size: 0.75rem;
+            color: #666;
+        }
+
+        /* Breathing Game Modal */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.6);
+            z-index: 100;
+            align-items: center;
+            justify-content: center;
+        }
+
+        .modal-content {
+            background-color: white;
+            border-radius: 15px;
+            padding: 20px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.2);
+            text-align: center;
+        }
+
+        .modal-title {
+            font-size: 1.3rem;
+            margin-bottom: 15px;
+            color: #ff6b93;
+        }
+
+        .close-modal {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 1.5rem;
+            cursor: pointer;
+            color: #999;
+        }
+
+        .breathing-game {
+            margin: 20px 0;
+            position: relative;
+            height: 200px;
+        }
+
+        .balloon {
+            width: 120px;
+            height: 150px;
+            background-color: #ff85a2;
+            border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
+            position: absolute;
+            left: 50%;
+            bottom: 20px;
+            transform: translateX(-50%);
+            transition: all 0.5s ease;
+        }
+
+        .balloon-string {
+            width: 2px;
+            height: 40px;
+            background-color: #999;
+            position: absolute;
+            left: 50%;
+            bottom: 0;
+            transform: translateX(-50%);
+        }
+
+        .balloon-basket {
+            width: 40px;
+            height: 20px;
+            background-color: #a67c52;
+            border-radius: 5px;
+            position: absolute;
+            left: 50%;
+            bottom: 0;
+            transform: translateX(-50%);
+        }
+
+        .breath-instruction {
+            font-size: 1.5rem;
+            margin-bottom: 10px;
+            color: #ff6b93;
+        }
+
+        .breath-timer {
+            font-size: 1.2rem;
+            color: #666;
+        }
+
+        .progress-bar {
+            height: 15px;
+            background-color: #eee;
+            border-radius: 10px;
+            margin: 15px 0;
+            overflow: hidden;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background-color: #64b5f6;
+            width: 0%;
+            transition: width 0.5s;
+        }
+
+        /* Badges Section */
+        .badges-section {
+            background-color: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 3px 10px rgba(0,0,0,0.1);
+        }
+
+        .badge-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 15px;
+        }
+
+        .badge-item {
+            text-align: center;
+        }
+
+        .badge-icon {
+            font-size: 2rem;
+            margin-bottom: 5px;
+            opacity: 0.3;
+            transition: opacity 0.3s;
+        }
+
+        .badge-icon.earned {
+            opacity: 1;
+        }
+
+        .badge-name {
+            font-size: 0.7rem;
+            color: #666;
+        }
+
+        /* Bottom Nav */
+        .bottom-nav {
+            display: flex;
+            justify-content: space-around;
+            background-color: white;
+            padding: 10px;
+            border-radius: 15px 15px 0 0;
+            box-shadow: 0 -3px 10px rgba(0,0,0,0.1);
+            position: sticky;
+            bottom: 0;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 5px;
+            cursor: pointer;
+        }
+
+        .nav-icon {
+            font-size: 1.5rem;
+            margin-bottom: 5px;
+        }
+
+        .nav-label {
+            font-size: 0.7rem;
+            color: #666;
+        }
+
+        /* Weather Indicator */
+        .weather-indicator {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            font-size: 2rem;
+        }
+
+        /* Animations */
+        @keyframes float {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-10px); }
+            100% { transform: translateY(0px); }
+        }
+
+        @keyframes breatheIn {
+            from { transform: scale(1); }
+            to { transform: scale(1.2); }
+        }
+
+        @keyframes breatheOut {
+            from { transform: scale(1.2); }
+            to { transform: scale(1); }
+        }
+
+        .float {
+            animation: float 3s ease-in-out infinite;
+        }
+
+        /* Elements for the garden */
+        .garden-element {
+            position: absolute;
+            transition: all 0.5s ease;
+        }
+
+        .tree {
+            width: 40px;
+            height: 60px;
+        }
+
+        .flower {
+            width: 20px;
+            height: 30px;
+        }
+
+        .rock {
+            width: 25px;
+            height: 15px;
+            background-color: #aaa;
+            border-radius: 50%;
+        }
+
+        .pond {
+            width: 70px;
+            height: 40px;
+            background-color: #64b5f6;
+            border-radius: 50%;
+        }
+    </style>
+    <link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@400;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="header">
+        <h1 class="app-title">🌋 Relationship Seismograph 2.0</h1>
+        <p class="subtitle">Playful Connection Builder</p>
+    </div>
+
+    <div class="container">
+        <!-- Garden View -->
+        <div class="garden-view">
+            <div class="weather-indicator">☀️</div>
+            <svg class="garden-svg" viewBox="0 0 300 180">
+                <!-- Base ground -->
+                <rect x="0" y="130" width="300" height="50" fill="#8d6e63" />
+                <!-- Grass layer -->
+                <path d="M0,130 C50,120 100,135 150,125 C200,115 250,130 300,125 L300,130 L0,130 Z" fill="#81c784" />
+                
+                <!-- Sample garden elements - will be dynamic in actual app -->
+                <!-- Tree 1 -->
+                <circle cx="50" cy="110" r="15" fill="#4caf50" />
+                <rect x="47" y="110" width="6" height="20" fill="#795548" />
+                
+                <!-- Flower -->
+                <circle cx="100" cy="125" r="5" fill="#f06292" />
+                <circle cx="102" cy="120" r="5" fill="#f06292" />
+                <circle cx="98" cy="120" r="5" fill="#f06292" />
+                <circle cx="100" cy="115" r="5" fill="#f06292" />
+                <line x1="100" y1="125" x2="100" y2="135" stroke="#4caf50" stroke-width="2" />
+                
+                <!-- Pond -->
+                <ellipse cx="200" cy="125" rx="25" ry="10" fill="#29b6f6" />
+                
+                <!-- Small rock -->
+                <ellipse cx="150" cy="128" rx="8" ry="5" fill="#9e9e9e" />
+                
+                <!-- Clouds -->
+                <g class="float">
+                    <circle cx="40" cy="40" r="15" fill="rgba(255,255,255,0.7)" />
+                    <circle cx="55" cy="40" r="20" fill="rgba(255,255,255,0.7)" />
+                    <circle cx="70" cy="40" r="15" fill="rgba(255,255,255,0.7)" />
+                </g>
+                
+                <g class="float" style="animation-delay: -1.5s">
+                    <circle cx="200" cy="30" r="15" fill="rgba(255,255,255,0.7)" />
+                    <circle cx="215" cy="30" r="20" fill="rgba(255,255,255,0.7)" />
+                    <circle cx="230" cy="30" r="15" fill="rgba(255,255,255,0.7)" />
+                </g>
+                
+                <!-- Sun -->
+                <circle cx="270" cy="30" r="20" fill="#ffeb3b" />
+            </svg>
+        </div>
+
+        <!-- Check-in Section -->
+        <div class="check-in-section">
+            <h2 class="section-title">🌱 Daily Soil Check</h2>
+            <div class="mood-picker">
+                <div class="mood-option" onclick="selectMood(this, '🌱')">
+                    <div class="mood-emoji">🌱</div>
+                    <div class="mood-label">Calm</div>
+                </div>
+                <div class="mood-option" onclick="selectMood(this, '☀️')">
+                    <div class="mood-emoji">☀️</div>
+                    <div class="mood-label">Happy</div>
+                </div>
+                <div class="mood-option" onclick="selectMood(this, '⚡')">
+                    <div class="mood-emoji">⚡</div>
+                    <div class="mood-label">Energetic</div>
+                </div>
+                <div class="mood-option" onclick="selectMood(this, '🌧️')">
+                    <div class="mood-emoji">🌧️</div>
+                    <div class="mood-label">Uneasy</div>
+                </div>
+            </div>
+            <div class="partner-mood">
+                Your partner is feeling: <span id="partner-mood-display">--</span>
+            </div>
+            <div id="nvc-prompt" style="text-align: center; font-style: italic; margin-top: 10px;">
+                What's alive in you today?
+            </div>
+        </div>
+
+        <!-- Mini-Games Section -->
+        <div class="mini-games-section">
+            <h2 class="section-title">🎮 Recalibration Mini-Games</h2>
+            <div class="games-grid">
+                <div class="game-card" onclick="openBreathingGame()">
+                    <div class="game-icon">🎈</div>
+                    <div class="game-title">Breathing Sync</div>
+                    <div class="game-description">Rise above tension together</div>
+                </div>
+                <div class="game-card">
+                    <div class="game-icon">🧩</div>
+                    <div class="game-title">Puzzle of Perspectives</div>
+                    <div class="game-description">Fit your viewpoints together</div>
+                </div>
+                <div class="game-card">
+                    <div class="game-icon">🔄</div>
+                    <div class="game-title">We Statements</div>
+                    <div class="game-description">Convert blame to shared goals</div>
+                </div>
+                <div class="game-card">
+                    <div class="game-icon">🌋</div>
+                    <div class="game-title">Volcano Cool Down</div>
+                    <div class="game-description">Calm big emotions together</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Badges Section -->
+        <div class="badges-section">
+            <h2 class="section-title">🏆 Your Achievements</h2>
+            <div class="badge-grid">
+                <div class="badge-item">
+                    <div class="badge-icon earned">☀️</div>
+                    <div class="badge-name">Sunny Days (3 calm check-ins)</div>
+                </div>
+                <div class="badge-item">
+                    <div class="badge-icon">🌋</div>
+                    <div class="badge-name">Volcano Tamers</div>
+                </div>
+                <div class="badge-item">
+                    <div class="badge-icon earned">💬</div>
+                    <div class="badge-name">Communication Wizards</div>
+                </div>
+                <div class="badge-item">
+                    <div class="badge-icon">🧘‍♀️</div>
+                    <div class="badge-name">Zen Gardeners</div>
+                </div>
+                <div class="badge-item">
+                    <div class="badge-icon earned">🎈</div>
+                    <div class="badge-name">Balloon Voyagers</div>
+                </div>
+                <div class="badge-item">
+                    <div class="badge-icon">🌈</div>
+                    <div class="badge-name">Rainbow Makers</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Bottom Navigation -->
+    <div class="bottom-nav">
+        <div class="nav-item">
+            <div class="nav-icon">🏡</div>
+            <div class="nav-label">Garden</div>
+        </div>
+        <div class="nav-item">
+            <div class="nav-icon">🎮</div>
+            <div class="nav-label">Games</div>
+        </div>
+        <div class="nav-item">
+            <div class="nav-icon">📊</div>
+            <div class="nav-label">Progress</div>
+        </div>
+        <div class="nav-item">
+            <div class="nav-icon">❤️</div>
+            <div class="nav-label">Connection</div>
+        </div>
+    </div>
+
+    <!-- Breathing Game Modal -->
+    <div id="breathing-modal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeModal()">&times;</span>
+            <h2 class="modal-title">Breathing Sync</h2>
+            <p>Breathe together to raise your balloon</p>
+            
+            <div class="breathing-game">
+                <div id="balloon" class="balloon"></div>
+                <div class="balloon-string"></div>
+                <div class="balloon-basket"></div>
+            </div>
+            
+            <div class="breath-instruction" id="breath-instruction">Inhale</div>
+            <div class="breath-timer" id="breath-timer">4</div>
+            
+            <div class="progress-bar">
+                <div id="progress-fill" class="progress-fill"></div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Simulate partner mood after a delay
+        setTimeout(() => {
+            document.getElementById('partner-mood-display').textContent = '☀️ Happy';
+        }, 2000);
+
+        // Garden elements state
+        const gardenState = {
+            elements: [],
+            weather: 'sunny',
+            growth: 50
+        };
+
+        // Select mood function
+        function selectMood(element, mood) {
+            // Remove selected class from all options
+            document.querySelectorAll('.mood-option').forEach(option => {
+                option.classList.remove('selected');
+            });
+            
+            // Add selected class to clicked option
+            element.classList.add('selected');
+            
+            // Update garden based on mood
+            updateGarden(mood);
+            
+            // Generate a random NVC prompt
+            const nvcPrompts = [
+                "What's alive in you right now?",
+                "What needs do you notice today?",
+                "What are you grateful for in your relationship?",
+                "What would help you feel more connected?"
+            ];
+            document.getElementById('nvc-prompt').textContent = nvcPrompts[Math.floor(Math.random() * nvcPrompts.length)];
+        }
+
+        // Update garden based on mood
+        function updateGarden(mood) {
+            const weatherIndicator = document.querySelector('.weather-indicator');
+            
+            switch(mood) {
+                case '🌱':
+                case '☀️':
+                    weatherIndicator.textContent = '☀️';
+                    break;
+                case '⚡':
+                    weatherIndicator.textContent = '⛅';
+                    break;
+                case '🌧️':
+                    weatherIndicator.textContent = '🌧️';
+                    break;
+            }
+        }
+
+        // Open breathing game modal
+        function openBreathingGame() {
+            document.getElementById('breathing-modal').style.display = 'flex';
+            startBreathingExercise();
+        }
+
+        // Close any modal
+        function closeModal() {
+            document.querySelectorAll('.modal').forEach(modal => {
+                modal.style.display = 'none';
+            });
+        }
+
+        // Breathing exercise variables
+        let breathingState = 'inhale';
+        let breathCount = 0;
+        let breathTimer;
+        let progress = 0;
+
+        // Start breathing exercise
+        function startBreathingExercise() {
+            const balloon = document.getElementById('balloon');
+            const instruction = document.getElementById('breath-instruction');
+            const timer = document.getElementById('breath-timer');
+            const progressFill = document.getElementById('progress-fill');
+            
+            let countdown = 4;
+            
+            breathingState = 'inhale';
+            instruction.textContent = 'Inhale';
+            timer.textContent = countdown;
+            
+            // Reset balloon position
+            balloon.style.transform = 'translateX(-50%)';
+            balloon.style.bottom = '20px';
+            
+            // Clear any existing timers
+            clearInterval(breathTimer);
+            
+            // Start the breathing cycle
+            breathTimer = setInterval(() => {
+                countdown--;
+                timer.textContent = countdown;
+                
+                if (countdown <= 0) {
+                    if (breathingState === 'inhale') {
+                        breathingState = 'exhale';
+                        instruction.textContent = 'Exhale';
+                        countdown = 6;
+                        
+                        // Apply balloon animation
+                        balloon.style.transform = 'translateX(-50%) scale(1.2)';
+                    } else {
+                        breathingState = 'inhale';
+                        instruction.textContent = 'Inhale';
+                        countdown = 4;
+                        
+                        // Apply balloon animation
+                        balloon.style.transform = 'translateX(-50%) scale(1)';
+                        
+                        // Move balloon up
+                        breathCount++;
+                        const newHeight = 20 + (breathCount * 15);
+                        balloon.style.bottom = `${newHeight}px`;
+                        
+                        // Update progress
+                        progress += 10;
+                        progressFill.style.width = `${progress}%`;
+                        
+                        // Check if exercise is complete
+                        if (breathCount >= 6) {
+                            clearInterval(breathTimer);
+                            completeBreathingExercise();
+                        }
+                    }
+                }
+            }, 1000);
+        }
+
+        // Complete breathing exercise
+        function completeBreathingExercise() {
+            setTimeout(() => {
+                alert('Great job! You've risen above the tension. Your Connection Garden has been watered with calm energy!');
+                closeModal();
+                
+                // Add a new element to the garden
+                addGardenElement('flower');
+                
+                // Reset for next time
+                breathCount = 0;
+                progress = 0;
+                document.getElementById('progress-fill').style.width = '0%';
+            }, 1000);
+        }
+
+        // Add element to garden
+        function addGardenElement(type) {
+            const gardenSvg = document.querySelector('.garden-svg');
+            
+            if (type === 'flower') {
+                // Random position on ground
+                const xPos = 50 + Math.random() * 200;
+                
+                // Create flower group
+                const flower = document.createElementNS("http://www.w3.org/2000/svg", "g");
+                
+                // Random color
+                const colors = ['#f06292', '#ba68c8', '#64b5f6', '#4caf50', '#ffeb3b', '#ffa726'];
+                const color = colors[Math.floor(Math.random() * colors.length)];
+                
+                // Create petals
+                const petalPositions = [
+                    {cx: 0, cy: -5},
+                    {cx: 5, cy: -3},
+                    {cx: 5, cy: 3},
+                    {cx: 0, cy: 5},
+                    {cx: -5, cy: 3},
+                    {cx: -5, cy: -3}
+                ];
+                
+                petalPositions.forEach(pos => {
+                    const petal = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                    petal.setAttribute("cx", pos.cx);
+                    petal.setAttribute("cy", pos.cy);
+                    petal.setAttribute("r", "5");
+                    petal.setAttribute("fill", color);
+                    flower.appendChild(petal);
+                });
+                
+                // Create center
+                const center = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+                center.setAttribute("cx", "0");
+                center.setAttribute("cy", "0");
+                center.setAttribute("r", "3");
+                center.setAttribute("fill", "#ffeb3b");
+                flower.appendChild(center);
+                
+                // Create stem
+                const stem = document.createElementNS("http://www.w3.org/2000/svg", "line");
+                stem.setAttribute("x1", "0");
+                stem.setAttribute("y1", "0");
+                stem.setAttribute("x2", "0");
+                stem.setAttribute("y2", "10");
+                stem.setAttribute("stroke", "#4caf50");
+                stem.setAttribute("stroke-width", "2");
+                flower.appendChild(stem);
+                
+                // Position the flower group
+                flower.setAttribute("transform", `translate(${xPos}, 120)`);
+                
+                // Add to garden
+                gardenSvg.appendChild(flower);
+            }
+        }
+
+        // Initialize with some randomness on load
+        window.onload = function() {
+            // Randomly select between 2 elements
+            setTimeout(() => {
+                const elementTypes = ['flower', 'tree'];
+                const randomType = elementTypes[Math.floor(Math.random() * elementTypes.length)];
+                addGardenElement(randomType);
+            }, 1000);
+        };
+    </script>
+</body>
+</html>
